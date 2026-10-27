@@ -53,6 +53,12 @@
   #panel.open { display: block; }
   #panel h3 { margin: 12px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   #panel h3:first-child { margin-top: 0; }
+  .mat { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .mat th, .mat td { padding: 4px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  .mat th:first-child, .mat td:first-child { text-align: left; }
+  .mat th { font-weight: 600; color: var(--muted); font-size: 12px; }
+  .mat td.left { font-weight: 700; }
+  .mat td:not(:first-child) { white-space: nowrap; }
   #panel label { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
   #panel input[type=range] { width: 100%; }
   .codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 10px; }
@@ -152,6 +158,10 @@
 
   <h3>Codes on drawing</h3>
   <div class="codes" id="codes"></div>
+
+  <h3>Material</h3>
+  <table id="material" class="mat"></table>
+  <div class="muted" id="matNote"></div>
 
   <h3>Progress</h3>
   <div id="progress" class="muted"></div>
@@ -445,6 +455,7 @@ function saveChecks(patch) {
   const c = { ...checks[selected.key], ...patch };
   if (!CHECK_KEYS.some(k => c[k]) && !c.note && !c.face) delete checks[selected.key]; else checks[selected.key] = c;
   store.set("vh.checks", checks);
+  updateMaterials();
   map.redraw();
 }
 document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.onchange = () => saveChecks({ [i.dataset.k]: i.checked }));
@@ -523,7 +534,32 @@ for (const c of Object.keys(codeCounts).sort((a, b) => (a || "~").localeCompare(
   l.children[0].onchange = e => { e.target.checked ? hiddenCodes.delete(c) : hiddenCodes.add(c); store.set("vh.hiddenCodes", [...hiddenCodes]); map.redraw(); };
   $("codes").appendChild(l);
 }
+// One set of material is used for each pole whose "Box" is ticked.
+const MATERIALS = [
+  { name: "Tengibox", per: 1, unit: "stk" },
+  { name: "Tengihólkur", per: 1, unit: "stk" },
+  { name: "Mælatengi 25q", per: 1, unit: "stk" },
+  { name: "Mælatengi 6q", per: 2, unit: "stk" },
+  { name: "Herpiádrag", per: 0.1, unit: "m" },
+];
+function updateMaterials() {
+  const total = PLAN.poles.length;
+  const used = PLAN.poles.filter(p => checks[p.key]?.box).length;
+  const fmt = (n, u) => u === "m" ? n.toFixed(1).replace(".", ",") + " m" : String(n);
+  $("material").innerHTML = "<tr><th>Per pole (stk)</th><th>Used</th><th>Left</th><th>Total</th></tr>";
+  for (const m of MATERIALS) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td></td><td></td><td class='left'></td><td></td>";
+    tr.children[0].textContent = (m.unit === "m" ? m.per * 100 + " cm " : m.per + "× ") + m.name;
+    tr.children[1].textContent = fmt(used * m.per, m.unit);
+    tr.children[2].textContent = fmt((total - used) * m.per, m.unit);
+    tr.children[3].textContent = fmt(total * m.per, m.unit);
+    $("material").appendChild(tr);
+  }
+  $("matNote").textContent = `${used} of ${total} poles have Box ticked (one set each).`;
+}
 function updateProgress() {
+  updateMaterials();
   const n = PLAN.poles.filter(p => done.has(p.key)).length;
   $("progress").textContent = `${n} of ${PLAN.poles.length} poles marked installed on this device.`;
 }
