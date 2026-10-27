@@ -70,6 +70,11 @@
     border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-weight: 600; user-select: none; }
   #sheet .checks label:has(input:checked) { background: color-mix(in srgb, var(--ok) 15%, transparent); border-color: var(--ok); }
   #sheet .checks input { width: 20px; height: 20px; margin: 0; accent-color: var(--ok); }
+  #sheet .faces { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  #sheet .faces button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
+  #sheet .faces button[aria-checked="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); font-weight: 600; }
+  #sheet .faces .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 1px #0006; }
   #sNote { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg);
     font: inherit; font-size: 16px; resize: vertical; margin-bottom: 10px; }
   .done-badge { font-size: 12px; background: var(--ok); color: #fff; padding: 2px 8px; border-radius: 99px; }
@@ -86,9 +91,13 @@
     border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.55); cursor: pointer; }
   .pole::after { content: ""; position: absolute; inset: -10px; } /* bigger tap target */
   .pole.done { border-color: #fff; box-shadow: 0 0 0 4px #1d8a4a, 0 0 0 6px #fff, 0 0 0 7px #0005; }
-  .pole .chk { position: absolute; right: 18px; top: -3px; white-space: nowrap; font: 800 11px/1 system-ui; letter-spacing: 1px;
-    color: #fff; background: #1c2430; padding: 2px 3px 2px 4px; border-radius: 4px; pointer-events: none; }
+  .pole .tags { position: absolute; right: 18px; top: -3px; display: flex; align-items: center; gap: 3px; pointer-events: none; }
+  .pole .chk { white-space: nowrap; font: 800 11px/1 system-ui; letter-spacing: 1px;
+    color: #fff; background: #1c2430; padding: 2px 3px 2px 4px; border-radius: 4px; }
   .pole .chk:empty, .pole.done .chk { display: none; }
+  .pole.done .tags { right: 22px; }
+  .pole .face { width: 11px; height: 11px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #0008; }
+  .pole .face:not([style*="background"]) { display: none; }
   .pole.done::before { content: "✓"; position: absolute; inset: 0; color: #fff; font: bold 10px/12px system-ui; text-align: center; }
   .pole.sel { width: 24px; height: 24px; margin: -12px 0 0 -12px; z-index: 5; box-shadow: 0 0 0 3px var(--accent), 0 0 12px var(--accent); }
   .pole .lbl, .reloc .lbl { position: absolute; left: 18px; top: -4px; white-space: nowrap; font: 600 11px/1 system-ui;
@@ -164,6 +173,12 @@
       <label><input type="checkbox" data-k="box"> Box</label>
       <label><input type="checkbox" data-k="hattur"> Hattur</label>
     </div>
+    <div class="faces" role="radiogroup" aria-label="Face">
+      <span class="muted">Face</span>
+      <button type="button" data-face="brown" role="radio"><span class="dot"></span>Brown</button>
+      <button type="button" data-face="black" role="radio"><span class="dot"></span>Black</button>
+      <button type="button" data-face="grey" role="radio"><span class="dot"></span>Grey</button>
+    </div>
     <textarea id="sNote" rows="2" placeholder="Notes…" aria-label="Notes"></textarea>
   </div>
   <div class="actions">
@@ -210,6 +225,7 @@ PLAN.poles.forEach(p => { p.label = dupIds.has(p.id) ? p.id + " (" + (PLAN.poles
 let done = new Set(store.get("vh.done", []));
 let checks = store.get("vh.checks", {}); // pole key -> { staur, box, hattur, note }
 const CHECK_KEYS = ["staur", "box", "hattur"];
+const FACE_COLORS = { brown: "#7a4a24", black: "#111111", grey: "#8c9399" };
 let hiddenCodes = new Set(store.get("vh.hiddenCodes", []));
 let selected = null, me = null;
 
@@ -238,7 +254,8 @@ const poleEls = PLAN.poles.map(p => {
   const el = document.createElement("div");
   el.className = "pole"; el.title = p.label;
   el.style.background = CODE_COLORS[p.code] || CODE_COLORS[""];
-  el.innerHTML = '<span class="lbl"></span><span class="chk"></span>'; el.firstChild.textContent = p.label;
+  el.innerHTML = '<span class="lbl"></span><span class="tags"><span class="chk"></span><span class="face"></span></span>';
+  el.firstChild.textContent = p.label;
   el.addEventListener("click", e => { e.stopPropagation(); select(p); });
   markersEl.appendChild(el); p.el = el; return el;
 });
@@ -276,7 +293,8 @@ function applyVisibility(zoom) {
     // Ready = marked installed, or all three boxes ticked: green ring. Otherwise show S/B/H for ticked boxes.
     const c = checks[p.key] || {};
     p.el.classList.toggle("done", done.has(p.key) || CHECK_KEYS.every(k => c[k]));
-    p.el.lastChild.textContent = CHECK_KEYS.filter(k => c[k]).map(k => k[0].toUpperCase()).join("");
+    p.el.querySelector(".chk").textContent = CHECK_KEYS.filter(k => c[k]).map(k => k[0].toUpperCase()).join("");
+    p.el.querySelector(".face").style.background = FACE_COLORS[c.face] || "";
   }
   relocEls.forEach(el => el.classList.toggle("hidden", !$("showReloc").checked));
   markersEl.classList.toggle("labels", $("showLabels").checked || (zoom ?? map.zoom()) >= 19);
@@ -390,6 +408,7 @@ function select(p) {
   const c = checks[p.key] || {};
   document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.checked = !!c[i.dataset.k]);
   $("sNote").value = c.note || "";
+  showFace(c.face);
   updateSheet();
   map.redraw();
 }
@@ -403,11 +422,21 @@ function updateSheet() {
 $("sheetClose").onclick = () => select(null);
 function saveChecks(patch) {
   const c = { ...checks[selected.key], ...patch };
-  if (!CHECK_KEYS.some(k => c[k]) && !c.note) delete checks[selected.key]; else checks[selected.key] = c;
+  if (!CHECK_KEYS.some(k => c[k]) && !c.note && !c.face) delete checks[selected.key]; else checks[selected.key] = c;
   store.set("vh.checks", checks);
   map.redraw();
 }
 document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.onchange = () => saveChecks({ [i.dataset.k]: i.checked }));
+function showFace(face) {
+  document.querySelectorAll("#sChecks [data-face]").forEach(b => b.setAttribute("aria-checked", b.dataset.face === face));
+}
+document.querySelectorAll("#sChecks [data-face]").forEach(b => {
+  b.querySelector(".dot").style.background = FACE_COLORS[b.dataset.face];
+  b.onclick = () => { // tap the selected face again to clear it
+    const face = checks[selected.key]?.face === b.dataset.face ? "" : b.dataset.face;
+    saveChecks({ face }); showFace(face);
+  };
+});
 $("sNote").oninput = () => saveChecks({ note: $("sNote").value.trim() ? $("sNote").value : "" });
 $("sCopy").onclick = async () => {
   const t = selected.lat.toFixed(6) + ", " + selected.lon.toFixed(6);
@@ -484,19 +513,19 @@ function download(name, text, type) {
 }
 $("exportCsv").onclick = () => {
   const csv = v => /[",\n\r]/.test(v = String(v)) ? '"' + v.replace(/"/g, '""') + '"' : v;
-  const rows = [["pole_id", "code", "lat", "lon", "installed", "staur", "box", "hattur", "notes"]];
+  const rows = [["pole_id", "code", "lat", "lon", "installed", "staur", "box", "hattur", "face", "notes"]];
   PLAN.poles.forEach(p => {
     const c = checks[p.key] || {};
     rows.push([p.label, p.code, p.lat, p.lon, done.has(p.key) ? "yes" : "no",
-      ...CHECK_KEYS.map(k => c[k] ? "yes" : "no"), c.note || ""]);
+      ...CHECK_KEYS.map(k => c[k] ? "yes" : "no"), c.face || "", c.note || ""]);
   });
-  PLAN.relocated.forEach(r => rows.push([r.id, "existing-new-location", r.lat, r.lon, "", "", "", "", ""]));
+  PLAN.relocated.forEach(r => rows.push([r.id, "existing-new-location", r.lat, r.lon, "", "", "", "", "", ""]));
   download("light-poles.csv", "﻿" + rows.map(r => r.map(csv).join(",")).join("\n"), "text/csv");
 };
 $("exportGeo").onclick = () => {
   const f = PLAN.poles.map(p => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] },
     properties: { pole_id: p.label, code: p.code, installed: done.has(p.key),
-      ...Object.fromEntries(CHECK_KEYS.map(k => [k, !!checks[p.key]?.[k]])), notes: checks[p.key]?.note || "" } }))
+      ...Object.fromEntries(CHECK_KEYS.map(k => [k, !!checks[p.key]?.[k]])), face: checks[p.key]?.face || "", notes: checks[p.key]?.note || "" } }))
     .concat(PLAN.relocated.map(r => ({ type: "Feature", geometry: { type: "Point", coordinates: [r.lon, r.lat] },
     properties: { pole_id: r.id, code: "existing-new-location" } })));
   download("light-poles.geojson", JSON.stringify({ type: "FeatureCollection", features: f }), "application/geo+json");
