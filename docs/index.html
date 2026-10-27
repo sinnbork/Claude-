@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="is">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vatnsendahvarf Light Poles</title>
+<title>Ljósastaurar Vatnsendahvarfi</title>
 <meta name="theme-color" content="#0b5cad">
 <style>
   :root {
@@ -139,56 +139,56 @@
 <div id="map"></div>
 
 <div id="bar">
-  <button class="btn" id="menuBtn" aria-label="Layers and settings" aria-expanded="false">☰</button>
+  <button class="btn" id="menuBtn" aria-label="Valmynd og stillingar" aria-expanded="false">☰</button>
   <div id="search">
-    <input id="q" type="search" placeholder="Find pole, e.g. 03.3-01" autocomplete="off" aria-label="Find pole">
+    <input id="q" type="search" placeholder="Finna staur, t.d. 03.3-01" autocomplete="off" aria-label="Finna staur">
     <div id="results" role="listbox"></div>
   </div>
-  <button class="btn" id="locBtn" aria-label="Show my location" title="Show my location">◎</button>
-  <button class="btn" id="hdgBtn" aria-label="Driving mode: rotate map to direction of travel" title="Driving mode (map turns with you)" aria-pressed="false"><span class="needle">⬆</span></button>
+  <button class="btn" id="locBtn" aria-label="Sýna staðsetningu mína" title="Sýna staðsetningu mína">◎</button>
+  <button class="btn" id="hdgBtn" aria-label="Akstursstilling: kortið snýst í akstursstefnu" title="Akstursstilling (kortið snýst með þér)" aria-pressed="false"><span class="needle">⬆</span></button>
 </div>
 
 <div id="panel">
-  <h3>Overlay</h3>
-  <label><input type="checkbox" id="showPlan" checked> Lighting plan drawing</label>
-  <label class="muted">Opacity <input type="range" id="opacity" min="0" max="100" value="80"></label>
-  <label><input type="checkbox" id="showPoles" checked><span>New light poles (<span id="poleCount"></span>)</span></label>
-  <label><input type="checkbox" id="showReloc" checked> Existing poles – new location (◆)</label>
-  <label><input type="checkbox" id="showLabels"> Always show pole IDs</label>
-  <label><input type="checkbox" id="hideDone"> Hide poles marked installed</label>
+  <h3>Kortalög</h3>
+  <label><input type="checkbox" id="showPlan" checked> Lýsingarteikning</label>
+  <label class="muted">Styrkur <input type="range" id="opacity" min="0" max="100" value="80"></label>
+  <label><input type="checkbox" id="showPoles" checked><span>Nýir ljósastaurar (<span id="poleCount"></span>)</span></label>
+  <label><input type="checkbox" id="showReloc" checked> Eldri staurar – ný staðsetning (◆)</label>
+  <label><input type="checkbox" id="showLabels"> Sýna alltaf staurnúmer</label>
+  <label><input type="checkbox" id="hideDone"> Fela uppsetta staura</label>
 
-  <h3>Hat / lamp types (codes on drawing)</h3>
-  <table class="mat" id="codes"><tr><th>Show type</th><th>Up</th><th>Left</th><th>Total</th></tr></table>
-  <div class="muted">A hat counts as up when "Hattur" is ticked on the pole.</div>
+  <h3>Hattar / lampagerðir (kóðar á teikningu)</h3>
+  <table class="mat" id="codes"><tr><th>Gerð</th><th>Uppi</th><th>Eftir</th><th>Alls</th></tr></table>
+  <div class="muted">Hattur telst kominn upp þegar hakað er við „Hattur“ á staurnum.</div>
 
-  <h3>Material</h3>
+  <h3>Efni</h3>
   <table id="material" class="mat"></table>
   <div class="muted" id="matNote"></div>
 
-  <h3>Progress</h3>
+  <h3>Framvinda</h3>
   <div id="progress" class="muted"></div>
   <div class="row">
-    <button class="btn" id="exportCsv">Export CSV</button>
-    <button class="btn" id="exportGeo">Export GeoJSON</button>
-    <button class="btn" id="resetDone">Clear marks</button>
+    <button class="btn" id="exportCsv">Sækja CSV</button>
+    <button class="btn" id="exportGeo">Sækja GeoJSON</button>
+    <button class="btn" id="resetDone">Hreinsa merkingar</button>
   </div>
 
-  <h3>Map</h3>
+  <h3>Kort</h3>
   <div id="provider" class="muted"></div>
   <div class="row">
-    <button class="btn" id="keyBtn">Google Maps API key…</button>
-    <button class="btn" id="fitBtn">Zoom to area</button>
+    <button class="btn" id="keyBtn">Google Maps lykill…</button>
+    <button class="btn" id="fitBtn">Sýna allt svæðið</button>
   </div>
-  <p class="muted" style="margin-bottom:0">Source: 23395 RAF götulýsing vinnuteikning. Positions were aligned to the official address register (median error ≈ 2–3 m). Check on site before digging.</p>
+  <p class="muted" style="margin-bottom:0">Heimild: 23395 RAF götulýsing vinnuteikning. Staðsetningar voru samræmdar við staðfangaskrá (skekkja yfirleitt um 2–3 m). Staðfestið á staðnum áður en grafið er.</p>
 </div>
 
-<div id="sheet" role="dialog" aria-label="Pole details">
-  <button class="close" id="sheetClose" aria-label="Close">×</button>
-  <h2><span class="sw" id="sSw"></span><span id="sId"></span> <span id="sDone" class="done-badge hidden">Installed</span></h2>
+<div id="sheet" role="dialog" aria-label="Upplýsingar um staur">
+  <button class="close" id="sheetClose" aria-label="Loka">×</button>
+  <h2><span class="sw" id="sSw"></span><span id="sId"></span> <span id="sDone" class="done-badge hidden">Uppsettur</span></h2>
   <dl>
-    <dt>Hat type</dt><dd id="sCode"></dd>
-    <dt>Position</dt><dd id="sPos"></dd>
-    <dt>Distance</dt><dd id="sDist">— (turn on location)</dd>
+    <dt>Hattagerð</dt><dd id="sCode"></dd>
+    <dt>Hnit</dt><dd id="sPos"></dd>
+    <dt>Fjarlægð</dt><dd id="sDist">—</dd>
   </dl>
   <div id="sChecks">
     <div class="checks">
@@ -196,33 +196,33 @@
       <label><input type="checkbox" data-k="box"> Box</label>
       <label><input type="checkbox" data-k="hattur"> Hattur</label>
     </div>
-    <div class="faces" role="radiogroup" aria-label="Face">
-      <span class="muted">Face</span>
-      <button type="button" data-face="brown" role="radio"><span class="dot"></span>Brown</button>
-      <button type="button" data-face="black" role="radio"><span class="dot"></span>Black</button>
-      <button type="button" data-face="grey" role="radio"><span class="dot"></span>Grey</button>
+    <div class="faces" role="radiogroup" aria-label="Litur">
+      <span class="muted">Litur</span>
+      <button type="button" data-face="brown" role="radio"><span class="dot"></span>Brúnn</button>
+      <button type="button" data-face="black" role="radio"><span class="dot"></span>Svartur</button>
+      <button type="button" data-face="grey" role="radio"><span class="dot"></span>Grár</button>
     </div>
-    <textarea id="sNote" rows="2" placeholder="Notes…" aria-label="Notes"></textarea>
+    <textarea id="sNote" rows="2" placeholder="Athugasemdir…" aria-label="Athugasemdir"></textarea>
   </div>
   <div class="actions">
-    <a class="btn primary" id="sNav" target="_blank" rel="noopener">Directions</a>
-    <button class="btn" id="sCopy">Copy coords</button>
-    <button class="btn" id="sMark">Mark installed</button>
+    <a class="btn primary" id="sNav" target="_blank" rel="noopener">Leiðsögn</a>
+    <button class="btn" id="sCopy">Afrita hnit</button>
+    <button class="btn" id="sMark">Merkja uppsettan</button>
   </div>
 </div>
 
 <button class="btn primary" id="nearest"></button>
-<div id="zoomBox"><button class="btn" id="zIn" aria-label="Zoom in">+</button><button class="btn" id="zOut" aria-label="Zoom out">−</button></div>
+<div id="zoomBox"><button class="btn" id="zIn" aria-label="Þysja inn">+</button><button class="btn" id="zOut" aria-label="Þysja út">−</button></div>
 
 <dialog id="keyDlg">
   <form method="dialog">
-    <h3 style="margin-top:0">Google Maps API key</h3>
-    <p class="muted">Google Maps needs a Maps JavaScript API key. Without one the app uses OpenStreetMap and Esri satellite imagery instead. The key is stored only in this browser.</p>
+    <h3 style="margin-top:0">Google Maps lykill</h3>
+    <p class="muted">Google Maps þarf „Maps JavaScript API“ lykil. Án hans notar appið OpenStreetMap og Esri loftmyndir. Lykillinn er aðeins geymdur í þessum vafra.</p>
     <input type="text" id="keyInput" placeholder="AIza…" autocomplete="off" spellcheck="false">
     <div class="row" style="justify-content:flex-end;margin-top:12px">
-      <button class="btn" value="clear">Use OpenStreetMap</button>
-      <button class="btn" value="cancel">Cancel</button>
-      <button class="btn primary" value="save">Save &amp; reload</button>
+      <button class="btn" value="clear">Nota OpenStreetMap</button>
+      <button class="btn" value="cancel">Hætta við</button>
+      <button class="btn primary" value="save">Vista og endurhlaða</button>
     </div>
   </form>
 </dialog>
@@ -250,6 +250,7 @@ let done = new Set(store.get("vh.done", []));
 let checks = store.get("vh.checks", {}); // pole key -> { staur, box, hattur, note }
 const CHECK_KEYS = ["staur", "box", "hattur"];
 const FACE_COLORS = { brown: "#7a4a24", black: "#111111", grey: "#8c9399" };
+const FACE_NAMES = { brown: "brúnn", black: "svartur", grey: "grár" };
 let hiddenCodes = new Set(store.get("vh.hiddenCodes", []));
 let selected = null, me = null;
 
@@ -263,7 +264,7 @@ function distM(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-const fmtDist = m => m < 1000 ? Math.round(m) + " m" : (m / 1000).toFixed(2) + " km";
+const fmtDist = m => m < 1000 ? Math.round(m) + " m" : (m / 1000).toFixed(2).replace(".", ",") + " km";
 
 // ---------- overlay DOM (provider independent) ----------
 const imgEl = document.createElement("img");
@@ -285,7 +286,7 @@ const poleEls = PLAN.poles.map(p => {
 });
 const relocEls = PLAN.relocated.map(r => {
   const el = document.createElement("div");
-  el.className = "reloc"; el.title = "Existing pole " + r.id + " – new location";
+  el.className = "reloc"; el.title = "Eldri staur " + r.id + " – ný staðsetning";
   el.innerHTML = '<span class="lbl"></span>'; el.firstChild.textContent = r.id;
   el.addEventListener("click", e => { e.stopPropagation(); select({ ...r, label: r.id, code: "", reloc: true }); });
   markersEl.appendChild(el); r.el = el; return el;
@@ -340,10 +341,10 @@ function loadScript(src) {
 function loadCss(href) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; document.head.appendChild(l); }
 
 async function startGoogle(key) {
-  window.gm_authFailure = () => { toast("Google Maps key rejected – using OpenStreetMap"); store.set("vh.gkeyFailed", key); setTimeout(() => location.reload(), 1500); };
+  window.gm_authFailure = () => { toast("Google Maps lykli hafnað – nota OpenStreetMap"); store.set("vh.gkeyFailed", key); setTimeout(() => location.reload(), 1500); };
   await new Promise((res, rej) => {
     window.__gmInit = res;
-    loadScript("https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) + "&v=weekly&callback=__gmInit").catch(rej);
+    loadScript("https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) + "&v=weekly&language=is&region=IS&callback=__gmInit").catch(rej);
   });
   const g = google.maps;
   const gm = new g.Map($("map"), {
@@ -388,13 +389,13 @@ async function startLeaflet() {
   loadCss("https://unpkg.com/leaflet@1.9.4/dist/leaflet.css");
   await loadScript("https://unpkg.com/leaflet@1.9.4/dist/leaflet.js");
   const lm = L.map("map", { zoomControl: false, maxZoom: 21 }).setView([center.lat, center.lon], 16);
-  L.control.zoom({ position: "bottomright" }).addTo(lm);
+  L.control.zoom({ position: "bottomright", zoomInTitle: "Þysja inn", zoomOutTitle: "Þysja út" }).addTo(lm);
   const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    { maxZoom: 21, maxNativeZoom: 19, attribution: "© OpenStreetMap contributors" });
+    { maxZoom: 21, maxNativeZoom: 19, attribution: "© OpenStreetMap framlagsaðilar" });
   const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 21, maxNativeZoom: 19, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" });
-  const base = { "Street map": osm, "Satellite": sat };
-  (base[store.get("vh.ltype", "Satellite")] || sat).addTo(lm);
+    { maxZoom: 21, maxNativeZoom: 19, attribution: "Loftmyndir © Esri, Maxar, Earthstar Geographics" });
+  const base = { "Götukort": osm, "Loftmynd": sat };
+  (base[store.get("vh.ltype", "Loftmynd")] || sat).addTo(lm);
   L.control.layers(base, null, { position: "bottomright" }).addTo(lm);
   lm.on("baselayerchange", e => store.set("vh.ltype", e.name));
   imgEl.classList.add("leaflet-zoom-hide"); markersEl.classList.add("leaflet-zoom-hide");
@@ -410,7 +411,7 @@ async function startLeaflet() {
   lm.on("zoomend viewreset", draw);
   lm.on("click", () => select(null));
   map = {
-    name: "OpenStreetMap / Esri (no Google key set)",
+    name: "OpenStreetMap / Esri (enginn Google lykill)",
     zoom: () => lm.getZoom(),
     panTo(lat, lon, z) { lm.setView([lat, lon], Math.max(lm.getZoom(), z || 0)); },
     fit() { lm.fitBounds([[bounds.s, bounds.w], [bounds.n, bounds.e]], { padding: [30, 30] }); },
@@ -433,11 +434,11 @@ function select(p) {
   if (!p) { map?.redraw(); return; }
   p.el?.classList.add("sel");
   $("panel").classList.remove("open"); $("menuBtn").setAttribute("aria-expanded", false);
-  $("sId").textContent = p.reloc ? "Existing pole " + p.label : p.label;
+  $("sId").textContent = p.reloc ? "Eldri staur " + p.label : p.label;
   $("sSw").style.background = p.reloc ? "#111" : CODE_COLORS[p.code];
-  $("sCode").textContent = p.reloc ? "Moved to new location (Ný staðsetning)" : (p.code || "—");
+  $("sCode").textContent = p.reloc ? "Færður á nýjan stað (Ný staðsetning)" : (p.code || "—");
   $("sPos").textContent = p.lat.toFixed(6) + ", " + p.lon.toFixed(6);
-  $("sNav").href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}&travelmode=walking`;
+  $("sNav").href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}&travelmode=walking&hl=is`;
   $("sMark").classList.toggle("hidden", !!p.reloc);
   $("sChecks").classList.toggle("hidden", !!p.reloc);
   const c = checks[p.key] || {};
@@ -451,8 +452,8 @@ function updateSheet() {
   if (!selected) return;
   const isDone = done.has(selected.key);
   $("sDone").classList.toggle("hidden", !isDone);
-  $("sMark").textContent = isDone ? "Unmark installed" : "Mark installed";
-  $("sDist").textContent = me ? fmtDist(distM(me, selected)) + (me.acc > 15 ? " (GPS ±" + Math.round(me.acc) + " m)" : "") : "— (turn on location ◎)";
+  $("sMark").textContent = isDone ? "Afmerkja uppsettan" : "Merkja uppsettan";
+  $("sDist").textContent = me ? fmtDist(distM(me, selected)) + (me.acc > 15 ? " (GPS ±" + Math.round(me.acc) + " m)" : "") : "— (kveiktu á staðsetningu ◎)";
 }
 $("sheetClose").onclick = () => select(null);
 function saveChecks(patch) {
@@ -476,7 +477,7 @@ document.querySelectorAll("#sChecks [data-face]").forEach(b => {
 $("sNote").oninput = () => saveChecks({ note: $("sNote").value.trim() ? $("sNote").value : "" });
 $("sCopy").onclick = async () => {
   const t = selected.lat.toFixed(6) + ", " + selected.lon.toFixed(6);
-  try { await navigator.clipboard.writeText(t); toast("Copied " + t); } catch { prompt("Coordinates", t); }
+  try { await navigator.clipboard.writeText(t); toast("Afritað: " + t); } catch { prompt("Hnit", t); }
 };
 $("sMark").onclick = () => {
   if (done.has(selected.key)) done.delete(selected.key);
@@ -501,11 +502,11 @@ $("q").addEventListener("input", () => {
     b.innerHTML = '<span class="sw"></span><span></span><span class="muted" style="margin-left:auto"></span>';
     b.children[0].style.background = p.reloc ? "#111" : CODE_COLORS[p.code];
     b.children[1].textContent = p.label;
-    b.children[2].textContent = p.reloc ? "existing, moved" : (me ? fmtDist(distM(me, p)) : (p.code ? "code " + p.code : ""));
+    b.children[2].textContent = p.reloc ? "eldri, færður" : (me ? fmtDist(distM(me, p)) : (p.code ? "gerð " + p.code : ""));
     b.onclick = () => { box.style.display = "none"; $("q").blur(); goTo(p); };
     box.appendChild(b);
   }
-  if (!hits.length) box.innerHTML = '<div class="muted" style="padding:10px">No pole matches</div>';
+  if (!hits.length) box.innerHTML = '<div class="muted" style="padding:10px">Enginn staur fannst</div>';
   box.style.display = "block";
 });
 $("q").addEventListener("keydown", e => {
@@ -534,7 +535,7 @@ for (const c of Object.keys(codeCounts).sort((a, b) => (a || "~").localeCompare(
   l.innerHTML = '<input type="checkbox"><span class="sw"></span><span></span>';
   l.children[0].checked = !hiddenCodes.has(c);
   l.children[1].style.background = CODE_COLORS[c];
-  l.children[2].textContent = c || "no code";
+  l.children[2].textContent = c || "enginn kóði";
   l.children[0].onchange = e => { e.target.checked ? hiddenCodes.delete(c) : hiddenCodes.add(c); store.set("vh.hiddenCodes", [...hiddenCodes]); map.redraw(); };
   const tr = document.createElement("tr");
   tr.innerHTML = "<td></td><td></td><td class='left'></td><td></td>";
@@ -562,7 +563,7 @@ function updateMaterials() {
   const total = PLAN.poles.length;
   const used = PLAN.poles.filter(p => checks[p.key]?.box).length;
   const fmt = (n, u) => u === "m" ? n.toFixed(1).replace(".", ",") + " m" : String(n);
-  $("material").innerHTML = "<tr><th>Per pole (stk)</th><th>Used</th><th>Left</th><th>Total</th></tr>";
+  $("material").innerHTML = "<tr><th>Á staur (stk)</th><th>Notað</th><th>Eftir</th><th>Alls</th></tr>";
   for (const m of MATERIALS) {
     const tr = document.createElement("tr");
     tr.innerHTML = "<td></td><td></td><td class='left'></td><td></td>";
@@ -573,12 +574,12 @@ function updateMaterials() {
     $("material").appendChild(tr);
   }
   updateCodeCounts();
-  $("matNote").textContent = `${used} of ${total} poles have Box ticked (one set each).`;
+  $("matNote").textContent = `Hakað við Box á ${used} af ${total} staurum (eitt sett á hvern).`;
 }
 function updateProgress() {
   updateMaterials();
   const n = PLAN.poles.filter(p => done.has(p.key)).length;
-  $("progress").textContent = `${n} of ${PLAN.poles.length} poles marked installed on this device.`;
+  $("progress").textContent = `${n} af ${PLAN.poles.length} staurum merktir uppsettir í þessu tæki.`;
 }
 function download(name, text, type) {
   const a = document.createElement("a");
@@ -587,25 +588,25 @@ function download(name, text, type) {
 }
 $("exportCsv").onclick = () => {
   const csv = v => /[",\n\r]/.test(v = String(v)) ? '"' + v.replace(/"/g, '""') + '"' : v;
-  const rows = [["pole_id", "code", "lat", "lon", "installed", "staur", "box", "hattur", "face", "notes"]];
+  const rows = [["staur_nr", "gerd", "breidd", "lengd", "uppsettur", "staur", "box", "hattur", "litur", "athugasemdir"]];
   PLAN.poles.forEach(p => {
     const c = checks[p.key] || {};
-    rows.push([p.label, p.code, p.lat, p.lon, done.has(p.key) ? "yes" : "no",
-      ...CHECK_KEYS.map(k => c[k] ? "yes" : "no"), c.face || "", c.note || ""]);
+    rows.push([p.label, p.code, p.lat, p.lon, done.has(p.key) ? "já" : "nei",
+      ...CHECK_KEYS.map(k => c[k] ? "já" : "nei"), FACE_NAMES[c.face] || "", c.note || ""]);
   });
-  PLAN.relocated.forEach(r => rows.push([r.id, "existing-new-location", r.lat, r.lon, "", "", "", "", "", ""]));
-  download("light-poles.csv", "﻿" + rows.map(r => r.map(csv).join(",")).join("\n"), "text/csv");
+  PLAN.relocated.forEach(r => rows.push([r.id, "eldri-ny-stadsetning", r.lat, r.lon, "", "", "", "", "", ""]));
+  download("ljosastaurar.csv", "﻿" + rows.map(r => r.map(csv).join(",")).join("\n"), "text/csv");
 };
 $("exportGeo").onclick = () => {
   const f = PLAN.poles.map(p => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-    properties: { pole_id: p.label, code: p.code, installed: done.has(p.key),
-      ...Object.fromEntries(CHECK_KEYS.map(k => [k, !!checks[p.key]?.[k]])), face: checks[p.key]?.face || "", notes: checks[p.key]?.note || "" } }))
+    properties: { staur_nr: p.label, gerd: p.code, uppsettur: done.has(p.key),
+      ...Object.fromEntries(CHECK_KEYS.map(k => [k, !!checks[p.key]?.[k]])), litur: FACE_NAMES[checks[p.key]?.face] || "", athugasemdir: checks[p.key]?.note || "" } }))
     .concat(PLAN.relocated.map(r => ({ type: "Feature", geometry: { type: "Point", coordinates: [r.lon, r.lat] },
-    properties: { pole_id: r.id, code: "existing-new-location" } })));
-  download("light-poles.geojson", JSON.stringify({ type: "FeatureCollection", features: f }), "application/geo+json");
+    properties: { staur_nr: r.id, gerd: "eldri-ny-stadsetning" } })));
+  download("ljosastaurar.geojson", JSON.stringify({ type: "FeatureCollection", features: f }), "application/geo+json");
 };
 $("resetDone").onclick = () => {
-  if (!done.size || !confirm("Clear all " + done.size + " installed marks on this device?")) return;
+  if (!done.size || !confirm("Hreinsa allar " + done.size + " uppsetningarmerkingar í þessu tæki?")) return;
   done.clear(); store.set("vh.done", []); updateProgress(); updateSheet(); map.redraw();
 };
 $("fitBtn").onclick = () => map.fit();
@@ -619,9 +620,9 @@ $("keyDlg").addEventListener("close", () => {
 // ---------- geolocation ----------
 let watchId = null, follow = false;
 function startWatch() {
-  if (!("geolocation" in navigator)) { toast("Location not available in this browser"); return false; }
+  if (!("geolocation" in navigator)) { toast("Staðsetning er ekki í boði í þessum vafra"); return false; }
   if (watchId !== null) return true;
-  follow = true; $("locBtn").classList.add("on"); toast("Finding your location…");
+  follow = true; $("locBtn").classList.add("on"); toast("Finn staðsetningu…");
   watchId = navigator.geolocation.watchPosition(pos => {
     const c = pos.coords;
     me = { lat: c.latitude, lon: c.longitude, acc: c.accuracy };
@@ -632,7 +633,7 @@ function startWatch() {
     else if (follow) { if (!selected) map.panTo(me.lat, me.lon, 18); }
     follow = false;
     updateHeading(); updateNearest(); updateSheet(); map.redraw();
-  }, err => { toast("Location error: " + err.message); stopWatch(); }, { enableHighAccuracy: true, maximumAge: 1000 });
+  }, err => { toast(["", "Aðgangi að staðsetningu hafnað – leyfðu hana í stillingum vafrans", "Staðsetning fannst ekki", "Tók of langan tíma að finna staðsetningu"][err.code] || "Villa í staðsetningu"); stopWatch(); }, { enableHighAccuracy: true, maximumAge: 1000 });
   return true;
 }
 $("locBtn").onclick = () => { if (watchId === null) startWatch(); else if (me) map.panTo(me.lat, me.lon); };
@@ -692,7 +693,7 @@ async function setHeadingMode(on) {
     $("hdgBtn").querySelector(".needle").style.transform = "";
   }
   placeMapContainer(); map.resized(); map.lockGestures(on);
-  if (on) { if (me) map.panTo(me.lat, me.lon, 17); updateHeading(); toast("Driving mode: map turns with you. Tap ⬆ again for north up."); }
+  if (on) { if (me) map.panTo(me.lat, me.lon, 17); updateHeading(); toast("Akstursstilling: kortið snýst með þér. Ýttu aftur á ⬆ til að fá norður upp."); }
   map.redraw();
 }
 $("hdgBtn").onclick = () => setHeadingMode(!headingMode);
@@ -708,7 +709,7 @@ function updateNearest() {
   }
   const b = $("nearest");
   if (!best || bd > 3000) { b.style.display = "none"; return; }
-  b.textContent = `Nearest pole: ${best.label} · ${fmtDist(bd)}`;
+  b.textContent = `Næsti staur: ${best.label} · ${fmtDist(bd)}`;
   b.onclick = () => goTo(best); b.style.display = "block";
 }
 
@@ -721,10 +722,10 @@ function updateNearest() {
   try {
     if (key && key !== failed) await startGoogle(key); else await startLeaflet();
   } catch (e) {
-    console.error(e); toast("Could not load Google Maps – using OpenStreetMap");
+    console.error(e); toast("Ekki tókst að hlaða Google Maps – nota OpenStreetMap");
     await startLeaflet();
   }
-  $("provider").textContent = "Base map: " + map.name;
+  $("provider").textContent = "Grunnkort: " + map.name;
   updateProgress();
   const hash = decodeURIComponent(location.hash.slice(1));
   const target = hash && PLAN.poles.find(p => p.id === hash);
