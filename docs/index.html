@@ -38,7 +38,7 @@
   .btn.on { outline: 2px solid var(--accent); }
 
   /* controls panel */
-  #panel { position: fixed; z-index: 1000; top: calc(max(10px, env(safe-area-inset-top)) + 54px); left: 10px;
+  #panel { position: fixed; z-index: 1002; top: calc(max(10px, env(safe-area-inset-top)) + 54px); left: 10px;
     width: min(320px, calc(100vw - 20px)); max-height: calc(100vh - 140px); overflow: auto;
     background: var(--panel); backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 12px;
     box-shadow: var(--shadow); padding: 12px; display: none; }
@@ -65,6 +65,13 @@
   #sheet dd { margin: 0; font-variant-numeric: tabular-nums; }
   #sheet .actions { display: flex; gap: 8px; flex-wrap: wrap; }
   #sheet .actions .btn { box-shadow: none; flex: 1; text-align: center; text-decoration: none; }
+  #sheet .checks { display: flex; gap: 8px; margin-bottom: 8px; }
+  #sheet .checks label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 6px;
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-weight: 600; user-select: none; }
+  #sheet .checks label:has(input:checked) { background: color-mix(in srgb, var(--ok) 15%, transparent); border-color: var(--ok); }
+  #sheet .checks input { width: 20px; height: 20px; margin: 0; accent-color: var(--ok); }
+  #sNote { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+    font: inherit; font-size: 16px; resize: vertical; margin-bottom: 10px; }
   .done-badge { font-size: 12px; background: var(--ok); color: #fff; padding: 2px 8px; border-radius: 99px; }
 
   /* nearest chip */
@@ -148,6 +155,14 @@
     <dt>Position</dt><dd id="sPos"></dd>
     <dt>Distance</dt><dd id="sDist">— (turn on location)</dd>
   </dl>
+  <div id="sChecks">
+    <div class="checks">
+      <label><input type="checkbox" data-k="staur"> Staur</label>
+      <label><input type="checkbox" data-k="box"> Box</label>
+      <label><input type="checkbox" data-k="hattur"> Hattur</label>
+    </div>
+    <textarea id="sNote" rows="2" placeholder="Notes…" aria-label="Notes"></textarea>
+  </div>
   <div class="actions">
     <a class="btn primary" id="sNav" target="_blank" rel="noopener">Directions</a>
     <button class="btn" id="sCopy">Copy coords</button>
@@ -190,6 +205,8 @@ PLAN.poles.forEach((p, i) => { p.key = p.id + "#" + i; p.code = p.code || ""; })
 const dupIds = new Set(PLAN.poles.map(p => p.id).filter((id, i, a) => a.indexOf(id) !== i));
 PLAN.poles.forEach(p => { p.label = dupIds.has(p.id) ? p.id + " (" + (PLAN.poles.filter(q => q.id === p.id).indexOf(p) + 1) + ")" : p.id; });
 let done = new Set(store.get("vh.done", []));
+let checks = store.get("vh.checks", {}); // pole key -> { staur, box, hattur, note }
+const CHECK_KEYS = ["staur", "box", "hattur"];
 let hiddenCodes = new Set(store.get("vh.hiddenCodes", []));
 let selected = null, me = null;
 
@@ -363,6 +380,10 @@ function select(p) {
   $("sPos").textContent = p.lat.toFixed(6) + ", " + p.lon.toFixed(6);
   $("sNav").href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}&travelmode=walking`;
   $("sMark").classList.toggle("hidden", !!p.reloc);
+  $("sChecks").classList.toggle("hidden", !!p.reloc);
+  const c = checks[p.key] || {};
+  document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.checked = !!c[i.dataset.k]);
+  $("sNote").value = c.note || "";
   updateSheet();
   map.redraw();
 }
@@ -374,12 +395,24 @@ function updateSheet() {
   $("sDist").textContent = me ? fmtDist(distM(me, selected)) + (me.acc > 15 ? " (GPS ±" + Math.round(me.acc) + " m)" : "") : "— (turn on location ◎)";
 }
 $("sheetClose").onclick = () => select(null);
+function saveChecks(patch) {
+  const c = { ...checks[selected.key], ...patch };
+  if (!CHECK_KEYS.some(k => c[k]) && !c.note) delete checks[selected.key]; else checks[selected.key] = c;
+  store.set("vh.checks", checks);
+}
+document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.onchange = () => saveChecks({ [i.dataset.k]: i.checked }));
+$("sNote").oninput = () => saveChecks({ note: $("sNote").value.trim() ? $("sNote").value : "" });
 $("sCopy").onclick = async () => {
   const t = selected.lat.toFixed(6) + ", " + selected.lon.toFixed(6);
   try { await navigator.clipboard.writeText(t); toast("Copied " + t); } catch { prompt("Coordinates", t); }
 };
 $("sMark").onclick = () => {
-  if (done.has(selected.key)) done.delete(selected.key); else done.add(selected.key);
+  if (done.has(selected.key)) done.delete(selected.key);
+  else {
+    done.add(selected.key);
+    saveChecks(Object.fromEntries(CHECK_KEYS.map(k => [k, true])));
+    document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.checked = true);
+  }
   store.set("vh.done", [...done]); updateSheet(); updateProgress(); map.redraw();
 };
 
@@ -443,14 +476,20 @@ function download(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 $("exportCsv").onclick = () => {
-  const rows = [["pole_id", "code", "lat", "lon", "installed"]];
-  PLAN.poles.forEach(p => rows.push([p.label, p.code, p.lat, p.lon, done.has(p.key) ? "yes" : "no"]));
-  PLAN.relocated.forEach(r => rows.push([r.id, "existing-new-location", r.lat, r.lon, ""]));
-  download("light-poles.csv", "﻿" + rows.map(r => r.join(",")).join("\n"), "text/csv");
+  const csv = v => /[",\n\r]/.test(v = String(v)) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  const rows = [["pole_id", "code", "lat", "lon", "installed", "staur", "box", "hattur", "notes"]];
+  PLAN.poles.forEach(p => {
+    const c = checks[p.key] || {};
+    rows.push([p.label, p.code, p.lat, p.lon, done.has(p.key) ? "yes" : "no",
+      ...CHECK_KEYS.map(k => c[k] ? "yes" : "no"), c.note || ""]);
+  });
+  PLAN.relocated.forEach(r => rows.push([r.id, "existing-new-location", r.lat, r.lon, "", "", "", "", ""]));
+  download("light-poles.csv", "﻿" + rows.map(r => r.map(csv).join(",")).join("\n"), "text/csv");
 };
 $("exportGeo").onclick = () => {
   const f = PLAN.poles.map(p => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] },
-    properties: { pole_id: p.label, code: p.code, installed: done.has(p.key) } }))
+    properties: { pole_id: p.label, code: p.code, installed: done.has(p.key),
+      ...Object.fromEntries(CHECK_KEYS.map(k => [k, !!checks[p.key]?.[k]])), notes: checks[p.key]?.note || "" } }))
     .concat(PLAN.relocated.map(r => ({ type: "Feature", geometry: { type: "Point", coordinates: [r.lon, r.lat] },
     properties: { pole_id: r.id, code: "existing-new-location" } })));
   download("light-poles.geojson", JSON.stringify({ type: "FeatureCollection", features: f }), "application/geo+json");
