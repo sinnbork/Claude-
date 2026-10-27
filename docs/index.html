@@ -85,7 +85,10 @@
   .pole { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
     border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.55); cursor: pointer; }
   .pole::after { content: ""; position: absolute; inset: -10px; } /* bigger tap target */
-  .pole.done { border-color: #1d8a4a; box-shadow: 0 0 0 2px #fff, 0 0 0 3px #1d8a4a; }
+  .pole.done { border-color: #fff; box-shadow: 0 0 0 4px #1d8a4a, 0 0 0 6px #fff, 0 0 0 7px #0005; }
+  .pole .chk { position: absolute; right: 18px; top: -3px; white-space: nowrap; font: 800 11px/1 system-ui; letter-spacing: 1px;
+    color: #fff; background: #1c2430; padding: 2px 3px 2px 4px; border-radius: 4px; pointer-events: none; }
+  .pole .chk:empty, .pole.done .chk { display: none; }
   .pole.done::before { content: "✓"; position: absolute; inset: 0; color: #fff; font: bold 10px/12px system-ui; text-align: center; }
   .pole.sel { width: 24px; height: 24px; margin: -12px 0 0 -12px; z-index: 5; box-shadow: 0 0 0 3px var(--accent), 0 0 12px var(--accent); }
   .pole .lbl, .reloc .lbl { position: absolute; left: 18px; top: -4px; white-space: nowrap; font: 600 11px/1 system-ui;
@@ -235,7 +238,7 @@ const poleEls = PLAN.poles.map(p => {
   const el = document.createElement("div");
   el.className = "pole"; el.title = p.label;
   el.style.background = CODE_COLORS[p.code] || CODE_COLORS[""];
-  el.innerHTML = '<span class="lbl"></span>'; el.firstChild.textContent = p.label;
+  el.innerHTML = '<span class="lbl"></span><span class="chk"></span>'; el.firstChild.textContent = p.label;
   el.addEventListener("click", e => { e.stopPropagation(); select(p); });
   markersEl.appendChild(el); p.el = el; return el;
 });
@@ -270,7 +273,10 @@ function applyVisibility(zoom) {
   for (const p of PLAN.poles) {
     const vis = showPoles && !hiddenCodes.has(p.code) && !(hideDone && done.has(p.key));
     p.el.classList.toggle("hidden", !vis && p !== selected);
-    p.el.classList.toggle("done", done.has(p.key));
+    // Ready = marked installed, or all three boxes ticked: green ring. Otherwise show S/B/H for ticked boxes.
+    const c = checks[p.key] || {};
+    p.el.classList.toggle("done", done.has(p.key) || CHECK_KEYS.every(k => c[k]));
+    p.el.lastChild.textContent = CHECK_KEYS.filter(k => c[k]).map(k => k[0].toUpperCase()).join("");
   }
   relocEls.forEach(el => el.classList.toggle("hidden", !$("showReloc").checked));
   markersEl.classList.toggle("labels", $("showLabels").checked || (zoom ?? map.zoom()) >= 19);
@@ -399,6 +405,7 @@ function saveChecks(patch) {
   const c = { ...checks[selected.key], ...patch };
   if (!CHECK_KEYS.some(k => c[k]) && !c.note) delete checks[selected.key]; else checks[selected.key] = c;
   store.set("vh.checks", checks);
+  map.redraw();
 }
 document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.onchange = () => saveChecks({ [i.dataset.k]: i.checked }));
 $("sNote").oninput = () => saveChecks({ note: $("sNote").value.trim() ? $("sNote").value : "" });
