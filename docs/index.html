@@ -19,6 +19,14 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
     font: 15px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   #map { position: fixed; inset: 0; }
+  /* Heading-up mode: the map container is enlarged and rotated around the user's position. */
+  body.heading #map { inset: auto; transition: transform .6s linear; }
+  body.heading .leaflet-control-zoom, body.heading .leaflet-control-layers { display: none; }
+  .pole { transform: rotate(var(--unrot, 0deg)); }
+  #hdgBtn .needle { display: inline-block; transition: transform .6s linear; }
+  #zoomBox { position: fixed; z-index: 1000; right: 10px; bottom: max(90px, calc(env(safe-area-inset-bottom) + 80px)); display: none; flex-direction: column; gap: 8px; }
+  body.heading #zoomBox { display: flex; }
+  #zoomBox .btn { width: 46px; height: 46px; font-size: 22px; padding: 0; }
 
   /* top bar */
   #bar { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 10px; right: 10px; z-index: 1000;
@@ -104,9 +112,11 @@
     color: #111; background: #ffffffd9; padding: 2px 4px; border-radius: 4px; display: none; pointer-events: none; }
   .labels .pole .lbl, .labels .reloc .lbl, .pole.sel .lbl { display: block; }
   .reloc { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; background: #111; border: 2px solid #fff;
-    box-shadow: 0 0 0 1px #000; transform: rotate(45deg); cursor: pointer; }
+    box-shadow: 0 0 0 1px #000; transform: rotate(calc(45deg + var(--unrot, 0deg))); cursor: pointer; }
   .reloc .lbl { transform: rotate(-45deg); transform-origin: 0 0; left: 10px; top: 6px; }
   .hidden { display: none !important; }
+  .me.dir::after { content: ""; position: absolute; left: 50%; top: -15px; margin-left: -7px; border: 7px solid transparent;
+    border-bottom: 12px solid #1a73e8; border-top: 0; }
   .me { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #1a73e8;
     border: 3px solid #fff; box-shadow: 0 0 0 1px #0005, 0 0 0 8px #1a73e833; pointer-events: none; z-index: 10; }
   .me-acc { position: absolute; border-radius: 50%; background: #1a73e822; border: 1px solid #1a73e866; pointer-events: none; }
@@ -128,6 +138,7 @@
     <div id="results" role="listbox"></div>
   </div>
   <button class="btn" id="locBtn" aria-label="Show my location" title="Show my location">◎</button>
+  <button class="btn" id="hdgBtn" aria-label="Driving mode: rotate map to direction of travel" title="Driving mode (map turns with you)" aria-pressed="false"><span class="needle">⬆</span></button>
 </div>
 
 <div id="panel">
@@ -189,6 +200,7 @@
 </div>
 
 <button class="btn primary" id="nearest"></button>
+<div id="zoomBox"><button class="btn" id="zIn" aria-label="Zoom in">+</button><button class="btn" id="zOut" aria-label="Zoom out">−</button></div>
 
 <dialog id="keyDlg">
   <form method="dialog">
@@ -350,7 +362,11 @@ async function startGoogle(key) {
     zoom: () => gm.getZoom(),
     panTo(lat, lon, z) { gm.panTo({ lat, lng: lon }); if (z && gm.getZoom() < z) gm.setZoom(z); },
     fit() { gm.fitBounds({ south: bounds.s, north: bounds.n, west: bounds.w, east: bounds.e }, 30); },
-    redraw: () => ov.draw()
+    redraw: () => ov.draw(),
+    zoomBy(d) { gm.setZoom(gm.getZoom() + d); },
+    resized() { g.event.trigger(gm, "resize"); },
+    // Gestures would move the map the wrong way while it is rotated, so lock them in driving mode.
+    lockGestures(on) { gm.setOptions({ gestureHandling: on ? "none" : "greedy", disableDefaultUI: on, mapTypeControl: !on, streetViewControl: !on }); }
   };
 }
 
@@ -384,7 +400,12 @@ async function startLeaflet() {
     zoom: () => lm.getZoom(),
     panTo(lat, lon, z) { lm.setView([lat, lon], Math.max(lm.getZoom(), z || 0)); },
     fit() { lm.fitBounds([[bounds.s, bounds.w], [bounds.n, bounds.e]], { padding: [30, 30] }); },
-    redraw: draw
+    redraw: draw,
+    zoomBy(d) { lm.setZoom(lm.getZoom() + d); },
+    resized() { lm.invalidateSize({ pan: false }); },
+    lockGestures(on) {
+      for (const h of ["dragging", "touchZoom", "scrollWheelZoom", "doubleClickZoom", "boxZoom", "keyboard"]) on ? lm[h].disable() : lm[h].enable();
+    }
   };
   draw();
 }
@@ -544,22 +565,87 @@ $("keyDlg").addEventListener("close", () => {
 
 // ---------- geolocation ----------
 let watchId = null, follow = false;
-$("locBtn").onclick = () => {
-  if (!("geolocation" in navigator)) return toast("Location not available in this browser");
-  if (watchId === null) {
-    follow = true; $("locBtn").classList.add("on"); toast("Finding your location…");
-    watchId = navigator.geolocation.watchPosition(pos => {
-      me = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy };
-      meEl.classList.remove("hidden"); meAccEl.classList.remove("hidden");
-      if (follow) { if (!selected) map.panTo(me.lat, me.lon, 18); follow = false; }
-      updateNearest(); updateSheet(); map.redraw();
-    }, err => { toast("Location error: " + err.message); stopWatch(); }, { enableHighAccuracy: true, maximumAge: 5000 });
-  } else if (me) { map.panTo(me.lat, me.lon); }
-};
+function startWatch() {
+  if (!("geolocation" in navigator)) { toast("Location not available in this browser"); return false; }
+  if (watchId !== null) return true;
+  follow = true; $("locBtn").classList.add("on"); toast("Finding your location…");
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const c = pos.coords;
+    me = { lat: c.latitude, lon: c.longitude, acc: c.accuracy };
+    // GPS course is reliable only while moving; below ~5 km/h fall back to the compass.
+    if (c.heading !== null && !isNaN(c.heading) && c.speed > 1.5) gpsHeading = { deg: c.heading, t: Date.now() };
+    meEl.classList.remove("hidden"); meAccEl.classList.remove("hidden");
+    if (headingMode) map.panTo(me.lat, me.lon, 17);
+    else if (follow) { if (!selected) map.panTo(me.lat, me.lon, 18); }
+    follow = false;
+    updateHeading(); updateNearest(); updateSheet(); map.redraw();
+  }, err => { toast("Location error: " + err.message); stopWatch(); }, { enableHighAccuracy: true, maximumAge: 1000 });
+  return true;
+}
+$("locBtn").onclick = () => { if (watchId === null) startWatch(); else if (me) map.panTo(me.lat, me.lon); };
 function stopWatch() {
   if (watchId !== null) navigator.geolocation.clearWatch(watchId);
   watchId = null; $("locBtn").classList.remove("on");
+  if (headingMode) setHeadingMode(false);
 }
+
+// ---------- driving mode (heading up) ----------
+let headingMode = false, gpsHeading = null, compassDeg = null, shownRot = 0;
+function currentHeading() {
+  if (gpsHeading && Date.now() - gpsHeading.t < 10000) return gpsHeading.deg;
+  return compassDeg ?? gpsHeading?.deg ?? null;
+}
+function onCompass(e) {
+  let h = e.webkitCompassHeading ?? (e.absolute && e.alpha !== null ? 360 - e.alpha : null);
+  if (h === null) return;
+  compassDeg = (h + (screen.orientation?.angle || 0)) % 360;
+  updateHeading();
+}
+function placeMapContainer() {
+  const el = $("map");
+  if (!headingMode) { el.removeAttribute("style"); return; }
+  // Pivot (map centre = you) sits low on screen so you see more of the road ahead.
+  const w = innerWidth, h = innerHeight, px = w / 2, py = h * 0.62;
+  const r = Math.ceil(Math.hypot(Math.max(px, w - px), Math.max(py, h - py)));
+  Object.assign(el.style, { left: px - r + "px", top: py - r + "px", width: 2 * r + "px", height: 2 * r + "px" });
+}
+function updateHeading() {
+  const hd = currentHeading();
+  meEl.classList.toggle("dir", hd !== null);
+  if (hd !== null) meEl.style.transform = `rotate(${hd}deg)`;
+  if (!headingMode || hd === null) return;
+  shownRot += ((hd - shownRot) % 360 + 540) % 360 - 180; // turn the short way round
+  $("map").style.transform = `rotate(${-shownRot}deg)`;
+  document.documentElement.style.setProperty("--unrot", shownRot + "deg");
+  $("hdgBtn").querySelector(".needle").style.transform = `rotate(${-shownRot}deg)`;
+}
+async function setHeadingMode(on) {
+  if (on) {
+    if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) {
+      try { await DeviceOrientationEvent.requestPermission(); } catch {}
+    }
+    if (!startWatch()) return;
+    addEventListener("deviceorientationabsolute", onCompass); addEventListener("deviceorientation", onCompass);
+  } else {
+    removeEventListener("deviceorientationabsolute", onCompass); removeEventListener("deviceorientation", onCompass);
+    compassDeg = null;
+  }
+  headingMode = on;
+  document.body.classList.toggle("heading", on);
+  $("hdgBtn").classList.toggle("on", on); $("hdgBtn").setAttribute("aria-pressed", on);
+  if (!on) {
+    shownRot = 0; $("map").style.transform = "";
+    document.documentElement.style.setProperty("--unrot", "0deg");
+    $("hdgBtn").querySelector(".needle").style.transform = "";
+  }
+  placeMapContainer(); map.resized(); map.lockGestures(on);
+  if (on) { if (me) map.panTo(me.lat, me.lon, 17); updateHeading(); toast("Driving mode: map turns with you. Tap ⬆ again for north up."); }
+  map.redraw();
+}
+$("hdgBtn").onclick = () => setHeadingMode(!headingMode);
+$("zIn").onclick = () => map.zoomBy(1);
+$("zOut").onclick = () => map.zoomBy(-1);
+addEventListener("resize", () => { if (headingMode) { placeMapContainer(); map.resized(); if (me) map.panTo(me.lat, me.lon); } });
 function updateNearest() {
   if (!me) return;
   let best = null, bd = Infinity;
