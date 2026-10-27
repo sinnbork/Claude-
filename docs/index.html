@@ -61,7 +61,6 @@
   .mat td:not(:first-child) { white-space: nowrap; }
   #panel label { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
   #panel input[type=range] { width: 100%; }
-  .codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 10px; }
   .sw { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #0006; flex: none; }
   .muted { color: var(--muted); font-size: 13px; }
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
@@ -158,8 +157,9 @@
   <label><input type="checkbox" id="showLabels"> Always show pole IDs</label>
   <label><input type="checkbox" id="hideDone"> Hide poles marked installed</label>
 
-  <h3>Codes on drawing</h3>
-  <div class="codes" id="codes"></div>
+  <h3>Hat / lamp types (codes on drawing)</h3>
+  <table class="mat" id="codes"><tr><th>Show type</th><th>Up</th><th>Left</th><th>Total</th></tr></table>
+  <div class="muted">A hat counts as up when "Hattur" is ticked on the pole.</div>
 
   <h3>Material</h3>
   <table id="material" class="mat"></table>
@@ -186,7 +186,7 @@
   <button class="close" id="sheetClose" aria-label="Close">×</button>
   <h2><span class="sw" id="sSw"></span><span id="sId"></span> <span id="sDone" class="done-badge hidden">Installed</span></h2>
   <dl>
-    <dt>Code</dt><dd id="sCode"></dd>
+    <dt>Hat type</dt><dd id="sCode"></dd>
     <dt>Position</dt><dd id="sPos"></dd>
     <dt>Distance</dt><dd id="sDist">— (turn on location)</dd>
   </dl>
@@ -527,16 +527,28 @@ $("menuBtn").onclick = () => {
 $("opacity").value = store.get("vh.opacity", 80);
 $("opacity").oninput = () => { store.set("vh.opacity", +$("opacity").value); imgEl.style.opacity = $("opacity").value / 100; };
 $("poleCount").textContent = PLAN.poles.length;
-const codeCounts = {};
+const codeCounts = {}, codeRows = {};
 PLAN.poles.forEach(p => codeCounts[p.code] = (codeCounts[p.code] || 0) + 1);
 for (const c of Object.keys(codeCounts).sort((a, b) => (a || "~").localeCompare(b || "~"))) {
   const l = document.createElement("label");
   l.innerHTML = '<input type="checkbox"><span class="sw"></span><span></span>';
   l.children[0].checked = !hiddenCodes.has(c);
   l.children[1].style.background = CODE_COLORS[c];
-  l.children[2].textContent = (c || "none") + " (" + codeCounts[c] + ")";
+  l.children[2].textContent = c || "no code";
   l.children[0].onchange = e => { e.target.checked ? hiddenCodes.delete(c) : hiddenCodes.add(c); store.set("vh.hiddenCodes", [...hiddenCodes]); map.redraw(); };
-  $("codes").appendChild(l);
+  const tr = document.createElement("tr");
+  tr.innerHTML = "<td></td><td></td><td class='left'></td><td></td>";
+  tr.children[0].appendChild(l);
+  tr.children[3].textContent = codeCounts[c];
+  codeRows[c] = tr;
+  $("codes").appendChild(tr);
+}
+function updateCodeCounts() {
+  for (const c in codeRows) {
+    const up = PLAN.poles.filter(p => p.code === c && checks[p.key]?.hattur).length;
+    codeRows[c].children[1].textContent = up;
+    codeRows[c].children[2].textContent = codeCounts[c] - up;
+  }
 }
 // One set of material is used for each pole whose "Box" is ticked.
 const MATERIALS = [
@@ -560,6 +572,7 @@ function updateMaterials() {
     tr.children[3].textContent = fmt(total * m.per, m.unit);
     $("material").appendChild(tr);
   }
+  updateCodeCounts();
   $("matNote").textContent = `${used} of ${total} poles have Box ticked (one set each).`;
 }
 function updateProgress() {
