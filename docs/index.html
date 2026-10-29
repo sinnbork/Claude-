@@ -358,7 +358,6 @@ async function startGoogle(key) {
     onAdd() {
       this.getPanes().overlayLayer.appendChild(imgEl);
       this.getPanes().overlayMouseTarget.appendChild(markersEl);
-      g.OverlayView.preventMapHitsAndGesturesFrom(markersEl);
     }
     draw() {
       const pr = this.getProjection(); if (!pr) return;
@@ -401,7 +400,8 @@ async function startLeaflet() {
   imgEl.classList.add("leaflet-zoom-hide"); markersEl.classList.add("leaflet-zoom-hide");
   lm.getPanes().overlayPane.appendChild(imgEl);
   lm.getPanes().markerPane.appendChild(markersEl);
-  L.DomEvent.disableClickPropagation(markersEl);
+  // Don't stop touch propagation on markers: poles are dense when zoomed out, and a pinch
+  // that starts on one must still reach the map. Pole clicks stop their own propagation.
   const draw = () => {
     const z = lm.getZoom();
     const mpp = 156543.03392 * Math.cos(center.lat * Math.PI / 180) / 2 ** z;
@@ -419,7 +419,10 @@ async function startLeaflet() {
     zoomBy(d) { lm.setZoom(lm.getZoom() + d); },
     resized() { lm.invalidateSize({ pan: false }); },
     lockGestures(on) {
-      for (const h of ["dragging", "touchZoom", "scrollWheelZoom", "doubleClickZoom", "boxZoom", "keyboard"]) on ? lm[h].disable() : lm[h].enable();
+      // Panning would move the rotated map the wrong way, so it is off; pinch and wheel zoom
+      // stay on but zoom around the map centre (your position) instead of the fingers.
+      lm.options.touchZoom = lm.options.scrollWheelZoom = on ? "center" : true;
+      for (const h of ["dragging", "doubleClickZoom", "boxZoom", "keyboard"]) on ? lm[h].disable() : lm[h].enable();
     }
   };
   draw();
