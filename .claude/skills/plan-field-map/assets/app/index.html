@@ -98,6 +98,33 @@
   body.sheet-open #nearest { display: none !important; }
 
   /* overlay elements (shared by Google + Leaflet) */
+  .plan-img img, .plan-img svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; max-width: none !important; }
+  .plan-img svg { overflow: visible; }
+  .plan-img svg path { fill: none; stroke-width: 6px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+  .plan-img svg path.halo { stroke: #fff; stroke-width: 11px; }
+  body.focus .plan-img img.elec { opacity: .2 !important; }
+  .pole.dim { opacity: .2; }
+  .pole.inline:not(.done) { box-shadow: 0 0 0 2px #fff, 0 0 0 5px var(--lc); }
+  .cab { position: absolute; width: 18px; height: 12px; margin: -6px 0 0 -9px; background: #3fdc1a; border: 2px solid #111; border-radius: 2px; cursor: pointer; z-index: 3; }
+  .cab::after { content: ""; position: absolute; inset: -10px; }
+  .cab .lbl, .sub .lbl { position: absolute; left: 20px; top: -3px; white-space: nowrap; font: 700 11px/1 system-ui; color: #111; background: #c9f7b8; padding: 2px 4px; border-radius: 4px; pointer-events: none; }
+  .sub { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; background: #111; color: #ffd400; border-radius: 4px; font: 14px/20px system-ui; text-align: center; cursor: pointer; z-index: 3; }
+  .sub .lbl { background: #fff3b0; }
+  .cab .lbl, .sub .lbl { display: none; }
+  .elabels .cab .lbl, .elabels .sub .lbl { display: block; }
+  .cab, .sub { transform: rotate(var(--unrot, 0deg)); }
+  #focusBar { position: fixed; z-index: 1000; top: calc(max(10px, env(safe-area-inset-top)) + 54px); left: 50%; transform: translateX(-50%);
+    background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+    padding: 6px 6px 6px 12px; display: flex; gap: 8px; align-items: center; width: max-content; max-width: calc(100vw - 20px); font-weight: 600; font-size: 14px; }
+  #focusBar button { border: 0; background: none; color: var(--muted); font-size: 22px; padding: 2px 8px; cursor: pointer; }
+  #focusBar .sw { border-radius: 3px; width: 18px; height: 6px; border: 0; box-shadow: none; }
+  #lines .grp { margin: 6px 0 2px; font-size: 13px; font-weight: 700; }
+  #lines .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  #lines button { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+    border-radius: 99px; padding: 6px 10px; font: inherit; font-size: 14px; cursor: pointer; }
+  #lines button .sw { width: 14px; height: 5px; border-radius: 3px; border: 0; box-shadow: none; }
+  #lines button.on { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+  .link { border: 0; background: none; color: var(--accent); font: inherit; padding: 0 0 0 6px; cursor: pointer; text-decoration: underline; }
   .plan-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none;
     user-select: none; max-width: none !important; max-height: none !important; image-rendering: auto; }
   .pole { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
@@ -150,12 +177,19 @@
 
 <div id="panel">
   <h3>Kortalög</h3>
-  <label><input type="checkbox" id="showPlan" checked> Lýsingarteikning</label>
+  <label><input type="checkbox" id="showPlan" checked> Lýsingarteikning (grunnur)</label>
+  <label><input type="checkbox" id="showElec" checked> Rafmagn: strengir og skápar</label>
   <label class="muted">Styrkur <input type="range" id="opacity" min="0" max="100" value="80"></label>
   <label><input type="checkbox" id="showPoles" checked><span>Nýir ljósastaurar (<span id="poleCount"></span>)</span></label>
   <label><input type="checkbox" id="showReloc" checked> Eldri staurar – ný staðsetning (◆)</label>
   <label><input type="checkbox" id="showLabels"> Sýna alltaf staurnúmer</label>
   <label><input type="checkbox" id="hideDone"> Fela uppsetta staura</label>
+
+  <div id="linesBox">
+  <h3>Strengir</h3>
+  <div class="muted">Veldu streng til að sjá hann einan og staurana sem hann lýsir. Ýttu á skáp á kortinu til að sjá alla strengi hans.</div>
+  <div id="lines"></div>
+  </div>
 
   <h3>Hattar / lampagerðir (kóðar á teikningu)</h3>
   <table class="mat" id="codes"><tr><th>Gerð</th><th>Uppi</th><th>Eftir</th><th>Alls</th></tr></table>
@@ -189,6 +223,7 @@
   <h2><span class="sw" id="sSw"></span><span id="sId"></span> <span id="sDone" class="done-badge hidden">Uppsettur</span></h2>
   <dl>
     <dt>Hattagerð</dt><dd id="sCode"></dd>
+    <dt class="lineRow">Strengur</dt><dd class="lineRow"><span id="sLine"></span><button class="link" id="sLineBtn">Sýna strenginn</button></dd>
     <dt>Hnit</dt><dd id="sPos"></dd>
     <dt>Fjarlægð</dt><dd id="sDist">—</dd>
   </dl>
@@ -210,6 +245,7 @@
 </div>
 
 <button class="btn primary" id="nearest"></button>
+<div id="focusBar" class="hidden"><span class="sw" id="fSw"></span><span id="fText"></span><button id="fClose" aria-label="Sýna alla strengi">×</button></div>
 <div id="zoomBox"><button class="btn" id="zIn" aria-label="Þysja inn">+</button><button class="btn" id="zOut" aria-label="Þysja út">−</button></div>
 
 <dialog id="keyDlg">
@@ -227,6 +263,7 @@
 <div id="toast"></div>
 
 <script src="data/plan.js"></script>
+<script src="data/elec.js"></script>
 <script>
 // ============ PROJECT SETTINGS: edit these for each new project ============
 const PROJECT = {
@@ -322,9 +359,18 @@ function distM(a, b) {
 const fmtDist = m => m < 1000 ? Math.round(m) + " m" : (m / 1000).toFixed(2).replace(".", ",") + " km";
 
 // ---------- overlay DOM (provider independent) ----------
-const imgEl = document.createElement("img");
-imgEl.className = "plan-img"; imgEl.src = PLAN.image.url; imgEl.alt = "";
-imgEl.width = PLAN.image.width; imgEl.height = PLAN.image.height;
+// The drawing is a wrapper holding the base drawing, the electrical layer and an SVG for
+// highlighted cable lines, all in image-pixel coordinates under one transform.
+const ELEC = window.ELEC || null;
+const imgEl = document.createElement("div");
+imgEl.className = "plan-img";
+imgEl.style.width = PLAN.image.width + "px"; imgEl.style.height = PLAN.image.height + "px";
+const mkImg = (src, cls) => { const i = document.createElement("img"); i.src = src; i.alt = ""; if (cls) i.className = cls; imgEl.appendChild(i); return i; };
+const baseImg = mkImg(ELEC ? ELEC.base : PLAN.image.url);
+const elecImg = ELEC ? mkImg(ELEC.elec, "elec") : null;
+const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+svgEl.setAttribute("viewBox", `0 0 ${PLAN.image.width} ${PLAN.image.height}`);
+imgEl.appendChild(svgEl);
 const markersEl = document.createElement("div");
 markersEl.style.position = "absolute";
 const meEl = document.createElement("div"); meEl.className = "me hidden";
@@ -346,6 +392,53 @@ const relocEls = PLAN.relocated.map(r => {
   el.addEventListener("click", e => { e.stopPropagation(); select({ ...r, label: r.id, code: "", reloc: true }); });
   markersEl.appendChild(el); r.el = el; return el;
 });
+// ---------- cable lines (strengir) ----------
+const LINE_COLORS = ["#e6194b", "#0b8fd9", "#3cb44b", "#911eb4", "#f58231", "#008080"];
+const LINES = ELEC ? ELEC.lines : [];
+const lineById = {};
+{
+  const perCab = {};
+  for (const l of LINES) { const k = l.cabinet || ""; perCab[k] = (perCab[k] || 0) + 1; l.color = LINE_COLORS[(perCab[k] - 1) % LINE_COLORS.length]; lineById[l.id] = l; }
+}
+PLAN.poles.forEach(p => { p.line = lineById[p.id.slice(0, 4)] || null; });
+const cabEls = (ELEC ? ELEC.cabinets : []).map(c => {
+  const el = document.createElement("div");
+  el.className = "cab"; el.title = "Götuljósaskápur " + c.id;
+  el.innerHTML = '<span class="lbl"></span>'; el.firstChild.textContent = c.id;
+  el.addEventListener("click", e => { e.stopPropagation(); focusLines(LINES.filter(l => l.cabinet === c.id), "Skápur " + c.id); });
+  markersEl.appendChild(el); c.el = el; return el;
+});
+const subEls = (ELEC ? ELEC.substations : []).map(sb => {
+  const el = document.createElement("div");
+  el.className = "sub"; el.textContent = "⚡"; el.title = "Dreifistöð nr. " + sb.id;
+  el.insertAdjacentHTML("beforeend", '<span class="lbl"></span>'); el.lastChild.textContent = "Dreifistöð " + sb.id;
+  el.addEventListener("click", e => { e.stopPropagation(); toast("Dreifistöð nr. " + sb.id + " (Veitur) – heimtaug 3x63A í götuljósaskápana"); });
+  markersEl.appendChild(el); sb.el = el; return el;
+});
+let focus = null; // { lines: Set of line ids, title }
+const isReady = p => { const c = checks[p.key] || {}; return done.has(p.key) || CHECK_KEYS.every(k => c[k]); };
+function focusLines(lines, title) {
+  if (!lines || !lines.length) { focus = null; }
+  else {
+    const poles = PLAN.poles.filter(p => p.line && lines.includes(p.line));
+    const ready = poles.filter(isReady).length;
+    const what = lines.length === 1 ? `Strengur ${lines[0].id}` + (title ? "" : ` · skápur ${lines[0].cabinet || "ekki á teikningu"}`) : `${lines.length} strengir`;
+    focus = { ids: new Set(lines.map(l => l.id)), text: [title, what, `${poles.length} staurar`, `${ready} tilbúnir`].filter(Boolean).join(" · ") };
+    $("fSw").style.background = lines.length === 1 ? lines[0].color : "linear-gradient(90deg," + lines.map(l => l.color).join(",") + ")";
+    if (!headingMode && poles.length) {
+      const la = poles.map(p => p.lat), lo = poles.map(p => p.lon);
+      map.fitBox(Math.min(...la), Math.min(...lo), Math.max(...la), Math.max(...lo));
+    }
+    select(null);
+    $("panel").classList.remove("open"); $("menuBtn").setAttribute("aria-expanded", false);
+  }
+  svgEl.innerHTML = focus ? lines.map(l => `<path class="halo" d="${l.path}"/><path d="${l.path}" stroke="${l.color}"/>`).join("") : "";
+  document.body.classList.toggle("focus", !!focus);
+  $("focusBar").classList.toggle("hidden", !focus);
+  if (focus) $("fText").textContent = focus.text;
+  document.querySelectorAll("#lines button").forEach(b => b.classList.toggle("on", !!focus && focus.ids.has(b.dataset.line) && focus.ids.size === 1));
+  map.redraw();
+}
 markersEl.appendChild(meAccEl); markersEl.appendChild(meEl);
 
 // Position everything given a projection lat/lon -> {x,y} in the pane's pixel space.
@@ -354,7 +447,7 @@ function layout(project, metersPerPixel) {
   const p0 = project(c.tl[0], c.tl[1]), p1 = project(c.tr[0], c.tr[1]), p2 = project(c.bl[0], c.bl[1]);
   imgEl.style.transform = `matrix(${(p1.x - p0.x) / W},${(p1.y - p0.y) / W},${(p2.x - p0.x) / H},${(p2.y - p0.y) / H},${p0.x},${p0.y})`;
   for (const p of PLAN.poles) { const q = project(p.lat, p.lon); p.el.style.left = q.x + "px"; p.el.style.top = q.y + "px"; }
-  for (const r of PLAN.relocated) { const q = project(r.lat, r.lon); r.el.style.left = q.x + "px"; r.el.style.top = q.y + "px"; }
+  for (const r of [...PLAN.relocated, ...(ELEC ? ELEC.cabinets : []), ...(ELEC ? ELEC.substations : [])]) { const q = project(r.lat, r.lon); r.el.style.left = q.x + "px"; r.el.style.top = q.y + "px"; }
   if (me) {
     const q = project(me.lat, me.lon);
     meEl.style.left = q.x + "px"; meEl.style.top = q.y + "px";
@@ -364,8 +457,10 @@ function layout(project, metersPerPixel) {
 }
 
 function applyVisibility(zoom) {
-  imgEl.classList.toggle("hidden", !$("showPlan").checked);
-  imgEl.style.opacity = $("opacity").value / 100;
+  baseImg.classList.toggle("hidden", !$("showPlan").checked);
+  elecImg?.classList.toggle("hidden", !$("showElec").checked);
+  [...cabEls, ...subEls].forEach(el => el.classList.toggle("hidden", !$("showElec").checked));
+  for (const i of [baseImg, elecImg]) if (i) i.style.opacity = $("opacity").value / 100;
   const showPoles = $("showPoles").checked, hideDone = $("hideDone").checked;
   for (const p of PLAN.poles) {
     const vis = showPoles && !hiddenCodes.has(p.code) && !(hideDone && done.has(p.key));
@@ -377,9 +472,14 @@ function applyVisibility(zoom) {
     p.el.querySelector(".face").style.background = FACE_COLORS[c.face] || "";
     p.el.querySelector(".note").textContent = c.note ? "*" : "";
     p.el.title = c.note ? p.label + " – " + c.note : p.label;
+    const inFocus = !!focus && !!p.line && focus.ids.has(p.line.id);
+    p.el.classList.toggle("dim", !!focus && !inFocus);
+    p.el.classList.toggle("inline", inFocus);
+    if (inFocus) p.el.style.setProperty("--lc", p.line.color);
   }
   relocEls.forEach(el => el.classList.toggle("hidden", !$("showReloc").checked));
   markersEl.classList.toggle("labels", $("showLabels").checked || (zoom ?? map.zoom()) >= 19);
+  markersEl.classList.toggle("elabels", $("showLabels").checked || (zoom ?? map.zoom()) >= 16);
 }
 
 // ---------- map providers ----------
@@ -431,6 +531,7 @@ async function startGoogle(key) {
     zoom: () => gm.getZoom(),
     panTo(lat, lon, z) { gm.panTo({ lat, lng: lon }); if (z && gm.getZoom() < z) gm.setZoom(z); },
     fit() { gm.fitBounds({ south: bounds.s, north: bounds.n, west: bounds.w, east: bounds.e }, 30); },
+    fitBox(s, w, n, e) { gm.fitBounds({ south: s, north: n, west: w, east: e }, { top: 110, bottom: 40, left: 30, right: 30 }); },
     redraw: () => ov.draw(),
     zoomBy(d) { gm.setZoom(gm.getZoom() + d); },
     resized() { g.event.trigger(gm, "resize"); },
@@ -470,6 +571,7 @@ async function startLeaflet() {
     zoom: () => lm.getZoom(),
     panTo(lat, lon, z) { lm.setView([lat, lon], Math.max(lm.getZoom(), z || 0)); },
     fit() { lm.fitBounds([[bounds.s, bounds.w], [bounds.n, bounds.e]], { padding: [30, 30] }); },
+    fitBox(s, w, n, e) { lm.fitBounds([[s, w], [n, e]], { paddingTopLeft: [30, 110], paddingBottomRight: [30, 40], maxZoom: 19 }); },
     redraw: draw,
     zoomBy(d) { lm.setZoom(lm.getZoom() + d); },
     resized() { lm.invalidateSize({ pan: false }); },
@@ -499,6 +601,8 @@ function select(p) {
   $("sNav").href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}&travelmode=walking&hl=is`;
   $("sMark").classList.toggle("hidden", !!p.reloc);
   $("sChecks").classList.toggle("hidden", !!p.reloc);
+  document.querySelectorAll(".lineRow").forEach(e => e.classList.toggle("hidden", !p.line));
+  if (p.line) $("sLine").textContent = `${p.line.id} · skápur ${p.line.cabinet || "ekki á teikningu"}`;
   const c = checks[p.key] || {};
   document.querySelectorAll("#sChecks input[data-k]").forEach(i => i.checked = !!c[i.dataset.k]);
   $("sNote").value = c.note || "";
@@ -514,6 +618,24 @@ function updateSheet() {
   $("sDist").textContent = me ? fmtDist(distM(me, selected)) + (me.acc > 15 ? " (GPS ±" + Math.round(me.acc) + " m)" : "") : "— (kveiktu á staðsetningu ◎)";
 }
 $("sheetClose").onclick = () => select(null);
+$("sLineBtn").onclick = () => { const l = selected?.line; if (l) focusLines([l]); };
+$("fClose").onclick = () => focusLines(null);
+{
+  const box = $("lines"), cabsOrder = [...new Set(LINES.map(l => l.cabinet || ""))].sort((a, b) => !a - !b || a.localeCompare(b)); // "not on the drawing" last
+  for (const cab of cabsOrder) {
+    const h = document.createElement("div"); h.className = "grp";
+    h.textContent = cab ? "Skápur " + cab : "Skápur ekki á teikningu"; box.appendChild(h);
+    const chips = document.createElement("div"); chips.className = "chips"; box.appendChild(chips);
+    for (const l of LINES.filter(l => (l.cabinet || "") === cab)) {
+      const b = document.createElement("button"); b.dataset.line = l.id;
+      b.innerHTML = '<span class="sw"></span><span></span>'; b.firstChild.style.background = l.color;
+      b.lastChild.textContent = `${l.id} (${l.poles.length})`;
+      b.onclick = () => focusLines([l]);
+      chips.appendChild(b);
+    }
+  }
+  if (!LINES.length) $("linesBox").remove();
+}
 function saveChecks(patch) {
   const c = { ...checks[selected.key], ...patch };
   if (!CHECK_KEYS.some(k => c[k]) && !c.note && !c.face) delete checks[selected.key]; else checks[selected.key] = c;
@@ -555,6 +677,16 @@ $("q").addEventListener("input", () => {
   const all = [...PLAN.poles, ...PLAN.relocated.map(r => ({ ...r, label: r.id, code: "", reloc: true, el: r.el }))];
   const hits = all.filter(p => norm(p.label).includes(q)).slice(0, 30);
   box.innerHTML = "";
+  const lineHits = LINES.filter(l => q.length >= 2 && (norm(l.id).startsWith(q) || norm(l.cabinet || "").includes(q))).slice(0, 8);
+  for (const l of lineHits) {
+    const b = document.createElement("button");
+    b.innerHTML = '<span class="sw" style="border-radius:3px;height:6px;border:0;box-shadow:none"></span><span></span><span class="muted" style="margin-left:auto"></span>';
+    b.children[0].style.background = l.color;
+    b.children[1].textContent = "Strengur " + l.id;
+    b.children[2].textContent = `${l.poles.length} staurar · ${l.cabinet || "?"}`;
+    b.onclick = () => { box.style.display = "none"; $("q").blur(); focusLines([l]); };
+    box.appendChild(b);
+  }
   for (const p of hits) {
     const b = document.createElement("button");
     b.innerHTML = '<span class="sw"></span><span></span><span class="muted" style="margin-left:auto"></span>';
@@ -564,7 +696,7 @@ $("q").addEventListener("input", () => {
     b.onclick = () => { box.style.display = "none"; $("q").blur(); goTo(p); };
     box.appendChild(b);
   }
-  if (!hits.length) box.innerHTML = '<div class="muted" style="padding:10px">Enginn staur fannst</div>';
+  if (!hits.length && !lineHits.length) box.innerHTML = '<div class="muted" style="padding:10px">Enginn staur fannst</div>';
   box.style.display = "block";
 });
 $("q").addEventListener("keydown", e => {
@@ -579,12 +711,12 @@ $("menuBtn").onclick = () => {
   const open = $("panel").classList.toggle("open");
   $("menuBtn").setAttribute("aria-expanded", open);
 };
-["showPlan", "showPoles", "showReloc", "showLabels", "hideDone"].forEach(id => {
+["showPlan", "showElec", "showPoles", "showReloc", "showLabels", "hideDone"].forEach(id => {
   const el = $(id); const saved = store.get("vh." + id, null); if (saved !== null) el.checked = saved;
   el.onchange = () => { store.set("vh." + id, el.checked); map.redraw(); };
 });
 $("opacity").value = store.get("vh.opacity", 80);
-$("opacity").oninput = () => { store.set("vh.opacity", +$("opacity").value); imgEl.style.opacity = $("opacity").value / 100; };
+$("opacity").oninput = () => { store.set("vh.opacity", +$("opacity").value); map.redraw(); };
 $("poleCount").textContent = PLAN.poles.length;
 const codeCounts = {}, codeRows = {};
 PLAN.poles.forEach(p => codeCounts[p.code] = (codeCounts[p.code] || 0) + 1);

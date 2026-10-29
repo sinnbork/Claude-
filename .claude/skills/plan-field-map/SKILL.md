@@ -54,6 +54,21 @@ python3 $S/check_alignment.py docs/data /tmp/ice/iceaddr/iceaddr.db check.png 10
 ```
 Look at `check.png`. The register's addresses should sit inside the right buildings, and the green rings should sit on the drawn symbols. Tell the user the real accuracy (e.g. "median 2.3 m"). Also tell them to set out from survey data before digging.
 
+## 2b. Electrical layer (cables, cabinets, which line feeds which poles)
+
+Crews putting the power on want each cable line (strengur) on its own: its cable and the poles it lights. If the drawing has cables in a distinct colour and cabinets (götuljósaskápar) labelled e.g. `1570-33`, run:
+```bash
+python3 $S/extract_lines.py plan.pdf symbols.json docs/data inv/words.json \
+  --cable-stroke 0.72,0.54,0 --cabinet-color 0.25,1,0 --cabinet-label '157\d-\d\d' --cabinet-label-color ff0000 \
+  --line-regex '^(\d\d\.\d)' --group-regex '^(\d\d)' --substation "1571,1468,371.8"
+```
+This splits the overlay into a **base** image and an **electrical** image (each is its own toggle), and writes `elec.js` with the lines, cabinets and substations. The app then gets a "Strengir" list in the menu, a line row on every pole card, and tappable cabinets that show all of their lines.
+
+Before trusting the result, check the printout:
+- **The pole ID should encode the line.** In the first project, `03.3-05` meant pole 5 on line 03.3, and cabinet 1570-33 fed every 03.x line. The script confirms this from the cable geometry (no cable piece touched two lines). If many pieces touch two lines, the numbering doesn't encode the line, so stop and ask the user.
+- **Groups far from every cabinet** (08.x and 09.x there, both over 350 m away) are fed from somewhere that isn't on the drawing. Say so; don't guess a cabinet.
+- **Don't name colours you can't confirm.** If the drawing has no legend, ask the user what each colour means. In the first plan, black dashed lines were the 11 kV cable, marked "ótengdur" (not connected), and cyan lines were 1x110 ducts.
+
 ## 3. Build the app
 
 Copy `assets/app/index.html` into the output folder (e.g. `docs/`) next to `data/`. Edit only the **`PROJECT` block at the top of the script**:
@@ -64,7 +79,7 @@ Copy `assets/app/index.html` into the output folder (e.g. `docs/`) next to `data
 - `codeUpCheck`: which check means the coded item (the hat) is up, used for the per-code Up/Left/Total table
 - `materialCheck` + `materials`: one material set is used per point with that check ticked. Use `[]` to hide the table.
 
-What the template already does, so you don't rebuild it:
+The template loads `data/elec.js` if it exists; without it, the electrical features simply don't appear. What the template already does, so you don't rebuild it:
 - Google Maps when a key is given (`?key=`, ☰ menu, or the `GOOGLE_MAPS_API_KEY` const), otherwise OpenStreetMap/Esri satellite through Leaflet.
 - A rotated, semi-transparent overlay of the drawing.
 - Search by ID, deep links (`#ID`), GPS, the nearest point, and Google Maps directions.

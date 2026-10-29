@@ -37,6 +37,7 @@ sym = json.load(open(a.symbols))
 poles = sorted(({"id": s["id"] or f"?{i}", "code": s.get("code"), **dict(zip(("lat", "lon"), geo(s["px"], s["py"])))} for i, s in enumerate(sym)), key=lambda p: p["id"])
 extra = [{"id": e["id"], **dict(zip(("lat", "lon"), geo(e["px"], e["py"])))} for e in json.load(open(a.extra))] if a.extra else []
 data = {"source": a.source, "image": {"url": "data/plan.webp", "width": pix.width, "height": pix.height,
+        "clip": [clip.x0, clip.y0, clip.x1, clip.y1], "dpi": a.dpi,
         "corners": {"tl": geo(clip.x0, clip.y0), "tr": geo(clip.x1, clip.y0), "bl": geo(clip.x0, clip.y1)}},
         "poles": poles, "relocated": extra}
 open(os.path.join(a.out, "data/plan.js"), "w").write("window.PLAN = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
