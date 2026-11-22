@@ -134,6 +134,17 @@ svg#tree{width:100%;height:auto;max-height:82vh;touch-action:manipulation;user-s
 .tempo-row{display:flex;align-items:center;gap:8px}
 .tempo-row input[type=range]{flex:1}
 .toggles{display:flex;flex-wrap:wrap;gap:6px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.save-row{display:flex;gap:8px}
+.save-row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:6px 8px}
+.saved{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
+.saved li{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 10px;background:var(--panel-2)}
+.saved .open{flex:1;min-width:0;text-align:left;border:0;background:none;padding:2px 0}
+.saved .open b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved .open span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved .del{padding:2px 8px;font-size:12px}
+.note{font-size:12px;color:var(--muted);margin:0}
 
 /* progression */
 .prog-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin-bottom:12px}
@@ -146,7 +157,7 @@ svg#tree{width:100%;height:auto;max-height:82vh;touch-action:manipulation;user-s
 .link .P{color:var(--P)} .link .R{color:var(--R)} .link .L{color:var(--L)}
 .link .arr{font-size:13px;line-height:1;color:var(--muted)}
 .chip{position:relative;border:1.5px solid;border-radius:12px;padding:8px 8px 6px 10px;display:flex;flex-direction:column;gap:6px;
-  min-width:112px;cursor:pointer;overflow:hidden;background:var(--panel-2)}
+  min-width:176px;cursor:pointer;overflow:hidden;background:var(--panel-2)}
 .chip.M{border-color:var(--maj-stroke);background:var(--maj-fill)}
 .chip.m{border-color:var(--min-stroke);background:var(--min-fill)}
 .chip .top{display:flex;align-items:center;justify-content:space-between;gap:6px}
@@ -282,6 +293,36 @@ svg#tree{width:100%;height:auto;max-height:82vh;touch-action:manipulation;user-s
         <button id="clickBtn" aria-pressed="false">Metronome</button>
       </div>
     </section>
+    <section class="panel card" aria-label="Generate a progression">
+      <h2>Generate</h2>
+      <div class="grid2">
+        <label class="field"><span class="lbl">Chords</span>
+          <select id="genLen">
+            <option>3</option><option selected>4</option><option>5</option><option>6</option><option>8</option>
+          </select>
+        </label>
+        <label class="field"><span class="lbl">Moves</span>
+          <select id="genMoves">
+            <option value="1">Smooth · 1 move</option>
+            <option value="2" selected>Mixed · 1–2 moves</option>
+            <option value="3">Bold · 1–3 moves</option>
+          </select>
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="genHome" checked> Start and end on the centre chord</label>
+      <button class="primary" id="genBtn">Generate from centre</button>
+      <p class="note">Each chord is reached from the one before by walking the tree, starting at the centre. The result replaces your current progression.</p>
+    </section>
+
+    <section class="panel card" aria-label="Saved progressions">
+      <h2>Saved progressions</h2>
+      <form class="save-row" id="saveForm">
+        <input id="saveName" placeholder="Name this progression" maxlength="60" aria-label="Progression name">
+        <button type="submit" class="primary" id="saveBtn">Save</button>
+      </form>
+      <ul class="saved" id="savedList"></ul>
+      <p class="note" id="savedNote">Saving stores the chords, tempo, time signature and sound.</p>
+    </section>
   </aside>
 
   <section class="panel prog" aria-label="Progression">
@@ -291,6 +332,11 @@ svg#tree{width:100%;height:auto;max-height:82vh;touch-action:manipulation;user-s
         <div class="meta" id="progMeta"></div>
       </div>
       <div class="prog-actions">
+        <select id="midiMode" aria-label="MIDI export style">
+          <option value="block">Block chords</option>
+          <option value="played">As played (rhythm)</option>
+        </select>
+        <button id="midiBtn" class="primary" title="Save the progression as a MIDI file">Export MIDI</button>
         <button id="undoBtn" title="Remove the last chord">Remove last</button>
         <button id="clearBtn">Clear</button>
       </div>
@@ -339,7 +385,7 @@ function path(a, b){
 const S = {
   centre: id(0,0), depth: 5, step: 1, sel: id(0,0),
   prog: [], example: false,
-  bpm: 96, ts: '4/4', pat: 'beats', snd: 'keys', vol: 75, bass: true, click: false, loop: true,
+  midi: 'block', genLen: 4, genMoves: 2, genHome: true, bpm: 96, ts: '4/4', pat: 'beats', snd: 'keys', vol: 75, bass: true, click: false, loop: true,
 };
 let keySeq = 1;
 const KEY = 'chordtree.v1';
@@ -507,7 +553,7 @@ function renderProg(){
   const bars = total/n;
   $('#progMeta').textContent = S.prog.length ? `${S.prog.length} chord${S.prog.length>1?'s':''} · ${Number.isInteger(bars)?bars:bars.toFixed(2)} bar${bars===1?'':'s'} of ${S.ts}` : '';
   $('#playBtn').disabled = !S.prog.length && !playing;
-  $('#undoBtn').disabled = $('#clearBtn').disabled = !S.prog.length;
+  $('#undoBtn').disabled = $('#clearBtn').disabled = $('#midiBtn').disabled = !S.prog.length;
   if (!S.prog.length){
     const d = document.createElement('div'); d.className='empty';
     d.textContent = 'Double‑tap any chord in the tree to add it here.';
@@ -523,7 +569,7 @@ function renderProg(){
     }
     const ch = document.createElement('div');
     ch.className = `chip ${isMin(p.c)?'m':'M'}${i===curIdx&&playing?' now':''}`;
-    ch.style.width = `${Math.max(112, 34*p.beats + 10)}px`;
+    ch.style.width = `${Math.max(176, 34*p.beats + 10)}px`;
     ch.style.maxWidth = '100%';
     ch.draggable = true; ch.tabIndex = 0; ch.dataset.i = i;
     ch.setAttribute('aria-label', `${nameOf(p.c)}, ${fmtDur(p.beats)}`);
@@ -738,6 +784,201 @@ function draw(){
 }
 $('#playBtn').addEventListener('click', () => playing ? stop() : play());
 
+// ---------- MIDI export ----------
+function vlq(n){ const b=[n&0x7f]; while((n>>=7)) b.unshift((n&0x7f)|0x80); return b; }
+function track(evs){ // evs: [{tick, bytes, order}] -> MTrk chunk bytes
+  evs.sort((a,b)=>a.tick-b.tick || a.order-b.order);
+  const d=[]; let last=0;
+  for (const e of evs){ d.push(...vlq(e.tick-last), ...e.bytes); last=e.tick; }
+  d.push(0,0xff,0x2f,0);
+  return [0x4d,0x54,0x72,0x6b, (d.length>>>24)&255,(d.length>>>16)&255,(d.length>>>8)&255,d.length&255, ...d];
+}
+const txt = str => [...new TextEncoder().encode(str)];
+function meta(tick, type, data){ return {tick, order:0, bytes:[0xff,type,...vlq(data.length),...data]}; }
+function buildMidi(mode){
+  const PPQ=480, [num,den]=tsParts(), bt = PPQ*4/den, bar = bt*num;
+  const t0=[meta(0,0x03,txt('Chord Tree')),
+    meta(0,0x51,(us=>[(us>>16)&255,(us>>8)&255,us&255])(Math.round(60e6/S.bpm))),
+    meta(0,0x58,[num, Math.log2(den), den===8&&num%3===0?36:24*4/den, 8])];
+  const ch=[meta(0,0x03,txt('Chords')), {tick:0,order:1,bytes:[0xc0, S.snd==='organ'?16:S.snd==='pad'?89:0]}];
+  const bs=[meta(0,0x03,txt('Bass')), {tick:0,order:1,bytes:[0xc1,32]}];
+  const note=(arr,chan,m,on,off,vel)=>{ if(off<=on) return; arr.push({tick:on,order:2,bytes:[0x90|chan,m,vel]},{tick:off,order:1,bytes:[0x80|chan,m,0]}); };
+  let tick=0, v=null, gb=0;
+  for (const p of S.prog){
+    v = voicing(p.c, v);
+    const len = p.beats*bt;
+    t0.push(meta(tick,0x06,txt(nameOf(p.c))));
+    if (mode==='block' || S.pat==='sustain'){
+      v.forEach(m=>note(ch,0,m,tick,tick+len,92));
+    } else {
+      for (let b=0;b<p.beats;b++){
+        const at = tick+b*bt, lvl = accentLevel((gb+b)%num), vel = lvl===2?104:lvl===1?90:78;
+        if (S.pat==='beats') v.forEach(m=>note(ch,0,m,at,at+Math.round(bt*.9),vel));
+        else { const seq=[v[0],v[1],v[2],v[0]+12,v[2],v[1]], sub = den===4?2:1;
+          for (let s=0;s<sub;s++){ const k=b*sub+s, st=at+s*bt/sub; note(ch,0,seq[k%seq.length],st,Math.min(tick+len,st+bt/sub),s?vel-10:vel); } }
+      }
+    }
+    if (S.bass || mode==='block'){
+      // root on the chord's first beat and on every barline inside it
+      let at = tick;
+      while (at < tick+len){ const nextBar = (Math.floor(at/bar)+1)*bar, end = Math.min(tick+len, nextBar); note(bs,1,bassNote(p.c),at,end,96); at = end; }
+    }
+    tick += len; gb += p.beats;
+  }
+  const head=[0x4d,0x54,0x68,0x64,0,0,0,6,0,1,0,3,(PPQ>>8)&255,PPQ&255];
+  return new Uint8Array([...head, ...track(t0), ...track(ch), ...track(bs)]);
+}
+// minimal uncompressed .zip (the artifact viewer only saves listed file types, and .mid is not one)
+const CRC = (()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xedb88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u){ let c=0xffffffff; for (const b of u) c = CRC[(c^b)&255]^(c>>>8); return (c^0xffffffff)>>>0; }
+function zip(name, data){
+  const fn=new TextEncoder().encode(name), crc=crc32(data), n=data.length;
+  const le=(v,b)=>Array.from({length:b},(_,i)=>(v>>>(8*i))&255);
+  const local=[...le(0x04034b50,4),20,0,0,0,0,0,0,0,0x21,0, ...le(crc,4),...le(n,4),...le(n,4),...le(fn.length,2),0,0, ...fn];
+  const central=[...le(0x02014b50,4),20,0,20,0,0,0,0,0,0,0,0x21,0, ...le(crc,4),...le(n,4),...le(n,4),...le(fn.length,2),0,0, 0,0, 0,0, 0,0, 0,0,0,0, 0,0,0,0, ...fn];
+  const end=[...le(0x06054b50,4),0,0,0,0,1,0,1,0,...le(central.length,4),...le(local.length+n,4),0,0];
+  const out=new Uint8Array(local.length+n+central.length+end.length);
+  out.set(local,0); out.set(data,local.length); out.set(central,local.length+n); out.set(end,local.length+n+central.length);
+  return out;
+}
+function midiName(){
+  const parts = S.prog.slice(0,6).map(p=>nameOf(p.c).replace('#','s'));
+  return `chord-tree-${parts.join('-')}${S.prog.length>6?'-etc':''}-${S.bpm}bpm`;
+}
+let downloadsP = null;
+if (window.claude && typeof window.claude.use==='function') downloadsP = window.claude.use('downloads').catch(()=>null);
+$('#midiBtn').addEventListener('click', async () => {
+  if (!S.prog.length){ toast('Add some chords first'); return; }
+  const mid = buildMidi($('#midiMode').value), base = midiName();
+  const dl = downloadsP ? await downloadsP : null;
+  if (dl){
+    try { await dl.save({filename: base+'.zip', data: zip(base+'.mid', mid)}); toast('Saved: unzip it to get the .mid file'); }
+    catch(e){ const c=e&&e.code; toast(c==='declined'?'Export cancelled':c==='rate_limited'?'A save is already waiting for you':'Saving isn’t available here'); }
+    return;
+  }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([mid],{type:'audio/midi'})); a.download=base+'.mid';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('MIDI file saved');
+});
+$('#midiMode').addEventListener('change', e => { S.midi = e.target.value; save(); });
+
+// ---------- random generation ----------
+function generate(){
+  const n = +$('#genLen').value, maxMv = +$('#genMoves').value, home = $('#genHome').checked;
+  const start = S.centre;
+  let best = null;
+  for (let tries=0; tries<4000; tries++){
+    const seq=[start]; let ok=true; const strict = tries < 3000, backMax = tries < 1500 ? Math.max(maxMv, 2) : maxMv + 2;
+    for (let i=1;i<n;i++){
+      const mv = 1 + Math.floor(Math.random()*maxMv);
+      let c = seq[i-1], lastOp = null;
+      for (let k=0;k<mv;k++){ const ops = OPS.filter(o=>o!==lastOp); lastOp = ops[Math.floor(Math.random()*ops.length)]; c = apply(c,lastOp); }
+      const last = home && i===n-1;
+      if (c===seq[i-1] || (!last && seq.includes(c) && (strict || Math.random()<.7))) { ok=false; break; }
+      seq.push(c);
+    }
+    if (!ok) continue;
+    if (home && n>2){
+      // the last chord must lead back home; it is replaced by the centre, so it must be within maxMv (+1 for parity) moves
+      const back = path(seq[n-2], start);
+      if (back===null || back.length===0 || back.length > backMax) continue;
+      seq[n-1] = start;
+    }
+    best = seq; break;
+  }
+  if (!best) { toast('Could not find a progression; try other settings'); return; }
+  const wasPlaying = playing; if (playing) stop();
+  S.prog = best.map(c => ({c, beats: barBeats(), k: keySeq++})); S.example = false;
+  renderProg(); save();
+  toast('Generated: ' + best.map(c=>pretty(nameOf(c))).join(' → '));
+  if (wasPlaying) play();
+}
+$('#genBtn').addEventListener('click', generate);
+['genLen','genMoves'].forEach(k => $('#'+k).addEventListener('change', e => { S[k]=+e.target.value; save(); }));
+$('#genHome').addEventListener('change', e => { S.genHome = e.target.checked; save(); });
+
+// ---------- saved progressions ----------
+// Stored privately per person in the artifact's database when available; otherwise in this browser.
+const LKEY = 'chordtree.saved.v1';
+let saved = [], col = null, delArmed = null;
+function localGet(){ try{ const v = JSON.parse(localStorage.getItem(LKEY)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function localPut(){ try{ localStorage.setItem(LKEY, JSON.stringify(saved)); }catch(e){} }
+function cleanRec(r){
+  if (!r || !Array.isArray(r.prog)) return null;
+  const prog = r.prog.filter(p=>p && Number.isInteger(p.c) && p.c>=0 && p.c<24).map(p=>({c:p.c, beats:Math.max(1,Math.min(64,p.beats|0))}));
+  if (!prog.length) return null;
+  return {id:String(r.id||''), name:String(r.name||'Untitled').slice(0,60), created:+r.created||0, prog,
+    bpm:Math.max(40,Math.min(220,+r.bpm||96)), ts:['2/4','3/4','4/4','5/4','6/8','7/8','9/8','12/8'].includes(r.ts)?r.ts:'4/4',
+    pat:['beats','sustain','arp'].includes(r.pat)?r.pat:'beats', snd:['keys','pad','organ'].includes(r.snd)?r.snd:'keys'};
+}
+function renderSaved(){
+  const ul = $('#savedList'); ul.innerHTML = '';
+  if (!saved.length){ const li=document.createElement('li'); li.style.cssText='border-style:dashed;color:var(--muted);justify-content:center;padding:12px'; li.textContent='Nothing saved yet.'; ul.appendChild(li); return; }
+  for (const r of saved){
+    const li = document.createElement('li');
+    const open = document.createElement('button'); open.className='open'; open.title='Load this progression';
+    const b = document.createElement('b'); b.textContent = r.name;
+    const sp = document.createElement('span'); sp.textContent = `${r.prog.map(p=>pretty(nameOf(p.c))).join(' → ')} · ${r.bpm} BPM · ${r.ts}`;
+    open.append(b, sp);
+    open.addEventListener('click', () => loadSaved(r));
+    const del = document.createElement('button'); del.className='del'; del.textContent = delArmed===r.id ? 'Delete?' : '×';
+    del.setAttribute('aria-label', 'Delete ' + r.name);
+    del.addEventListener('click', () => {
+      if (delArmed!==r.id){ delArmed=r.id; renderSaved(); setTimeout(()=>{ if(delArmed===r.id){ delArmed=null; renderSaved(); } }, 2500); return; }
+      delArmed=null; removeSaved(r.id);
+    });
+    li.append(open, del); ul.appendChild(li);
+  }
+}
+function loadSaved(r){
+  if (playing) stop();
+  S.prog = r.prog.map(p=>({c:p.c, beats:p.beats, k:keySeq++})); S.example=false;
+  S.ts = r.ts; S.pat = r.pat; S.snd = r.snd; setBpm(r.bpm);
+  $('#tsSel').value=S.ts; $('#patSel').value=S.pat; $('#sndSel').value=S.snd; $('#saveName').value = r.name;
+  renderProg(); save(); toast(`Loaded “${r.name}”`);
+}
+async function removeSaved(rid){
+  saved = saved.filter(x=>x.id!==rid); renderSaved();
+  if (col){ try{ await col.doc(rid).delete(); }catch(e){ toast('Could not delete; try again'); } }
+  else localPut();
+}
+$('#saveForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!S.prog.length){ toast('Add some chords first'); return; }
+  const name = $('#saveName').value.trim() || S.prog.slice(0,4).map(p=>pretty(nameOf(p.c))).join(' – ');
+  const existing = saved.find(x=>x.name===name);
+  const rec = cleanRec({id: existing ? existing.id : 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    name, created: existing ? existing.created : Date.now(), prog:S.prog.map(p=>({c:p.c,beats:p.beats})), bpm:S.bpm, ts:S.ts, pat:S.pat, snd:S.snd});
+  saved = [rec, ...saved.filter(x=>x.id!==rec.id)]; renderSaved();
+  if (col){ try{ await col.doc(rec.id).set(rec); }catch(err){ toast('Could not save; try again'); return; } }
+  else localPut();
+  $('#saveName').value = name;
+  toast(existing ? `Updated “${name}”` : `Saved “${name}”`);
+});
+saved = localGet().map(cleanRec).filter(Boolean);
+renderSaved();
+(async () => {
+  if (!(window.claude && typeof window.claude.use==='function')) return;
+  try{
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    const uid = db && user ? await user.id() : null;
+    if (!uid) return;
+    col = db.collection('data/users/' + uid);
+    let first = true;
+    col.onSnapshot(snap => {
+      const remote = snap.docs.map(d => cleanRec({...d.data(), id:d.id})).filter(Boolean);
+      if (first){
+        first = false;
+        // carry over anything saved in this browser before the account store was available
+        const ids = new Set(remote.map(r=>r.id));
+        for (const r of saved) if (!ids.has(r.id)){ remote.push(r); col.doc(r.id).set(r).catch(()=>{}); }
+      }
+      saved = remote.sort((a,b)=>b.created-a.created); renderSaved();
+      $('#savedNote').textContent = 'Saved to your account: only you can see these.';
+    }, () => { col = null; });
+  }catch(e){ col = null; }
+})();
+
 // ---------- controls ----------
 function setBpm(v){ v = Math.max(40, Math.min(220, Math.round(+v||96))); S.bpm=v; $('#bpm').value=v; $('#bpmRange').value=v; save(); }
 $('#bpm').addEventListener('change', e => setBpm(e.target.value));
@@ -771,7 +1012,7 @@ document.addEventListener('keydown', e => {
 // ---------- boot ----------
 load();
 $('#stepSel').value = String(S.step); $('#depthSel').value = String(S.depth);
-$('#tsSel').value = S.ts; $('#patSel').value = S.pat; $('#sndSel').value = S.snd; $('#vol').value = S.vol;
+$('#tsSel').value = S.ts; $('#midiMode').value = S.midi; $('#genLen').value = S.genLen; $('#genMoves').value = S.genMoves; $('#genHome').checked = S.genHome; $('#patSel').value = S.pat; $('#sndSel').value = S.snd; $('#vol').value = S.vol;
 setBpm(S.bpm);
 ['bassBtn','clickBtn','loopBtn'].forEach(b => $('#'+b).setAttribute('aria-pressed', String(S[b.replace('Btn','')])));
 renderTree(false); renderSel(); renderProg();
