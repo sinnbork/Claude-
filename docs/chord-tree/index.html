@@ -164,6 +164,14 @@ svg#tree{width:100%;height:auto;max-height:82vh;touch-action:manipulation;user-s
 .chip .nm{font-family:var(--font-display);font-weight:700;font-size:19px}
 .chip.M .nm{color:var(--maj-ink)} .chip.m .nm{color:var(--min-ink)}
 .chip .idx{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip .rn{font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--ink);opacity:.75;margin-left:6px}
+.chip .rn.out{font-style:italic;opacity:.55;text-decoration:underline dotted;text-underline-offset:3px}
+.prog-head .left{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;min-width:0}
+.keybox{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:var(--panel-2);border-radius:12px;padding:6px 8px 6px 12px;min-width:0}
+.keybox .kname{font-family:var(--font-display);font-weight:700;font-size:17px;line-height:1.15;white-space:nowrap}
+.keybox .kfit{font-size:12px;color:var(--muted);line-height:1.3}
+.keybox .kfit b{font-weight:600;color:var(--ink)}
+.keybox select{padding:4px 6px;font-size:12.5px}
 .chip .ctl{display:flex;align-items:center;gap:3px}
 .chip .ctl button{padding:2px 6px;font-size:12px;border-radius:6px;background:var(--panel);min-width:24px}
 .chip .dur{font-size:12px;font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
@@ -327,16 +335,22 @@ svg#tree{width:100%;height:auto;max-height:82vh;touch-action:manipulation;user-s
 
   <section class="panel prog" aria-label="Progression">
     <div class="prog-head">
-      <div>
-        <h2 style="display:inline">Progression</h2><span class="example" id="exampleTag" hidden>Example</span>
-        <div class="meta" id="progMeta"></div>
+      <div class="left">
+        <div>
+          <h2 style="display:inline">Progression</h2><span class="example" id="exampleTag" hidden>Example</span>
+          <div class="meta" id="progMeta"></div>
+        </div>
+        <div class="keybox" id="keybox" aria-live="polite">
+          <div>
+            <div class="lbl">Key</div>
+            <div class="kname" id="keyName">–</div>
+            <div class="kfit" id="keyFit"></div>
+          </div>
+          <select id="keySel" aria-label="Key used for the numerals" title="Detected automatically; pick a key to override"></select>
+        </div>
       </div>
       <div class="prog-actions">
-        <select id="midiMode" aria-label="MIDI export style">
-          <option value="block">Block chords</option>
-          <option value="played">As played (rhythm)</option>
-        </select>
-        <button id="midiBtn" class="primary" title="Save the progression as a MIDI file">Export MIDI</button>
+        <button id="midiBtn" class="primary" title="Save the progression as a MIDI file, using the current rhythm, sound and bass settings">Export MIDI</button>
         <button id="undoBtn" title="Remove the last chord">Remove last</button>
         <button id="clearBtn">Clear</button>
       </div>
@@ -385,7 +399,7 @@ function path(a, b){
 const S = {
   centre: id(0,0), depth: 5, step: 1, sel: id(0,0),
   prog: [], example: false,
-  midi: 'block', genLen: 4, genMoves: 2, genHome: true, bpm: 96, ts: '4/4', pat: 'beats', snd: 'keys', vol: 75, bass: true, click: false, loop: true,
+  key: 'auto', genLen: 4, genMoves: 2, genHome: true, bpm: 96, ts: '4/4', pat: 'beats', snd: 'keys', vol: 75, bass: true, click: false, loop: true,
 };
 let keySeq = 1;
 const KEY = 'chordtree.v1';
@@ -546,6 +560,63 @@ function addChord(c){
 }
 const fmtDur = b => { const n = barBeats(); if (b % n === 0){ const bars=b/n; return bars===1?'1 bar':`${bars} bars`; } return b===1?'1 beat':`${b} beats`; };
 let dragFrom = null;
+// ---------- key detection ----------
+const KEY_MAJ = ['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const KEY_MIN = ['C','C♯','D','E♭','E','F','F♯','G','G♯','A','B♭','B'];
+const keyLabel = k => isMin(k) ? `${KEY_MIN[rootOf(k)]} minor` : `${KEY_MAJ[rootOf(k)]} major`;
+function diatonic(k){ // chords (as ids) that belong to key k; minor includes the major V of harmonic minor
+  const t = rootOf(k);
+  return isMin(k) ? [id(t,1), id(t+3,0), id(t+5,1), id(t+7,1), id(t+7,0), id(t+8,0), id(t+10,0)]
+                  : [id(t,0), id(t+2,1), id(t+4,1), id(t+5,0), id(t+7,0), id(t+9,1)];
+}
+function rankKeys(prog){
+  const total = prog.reduce((a,p)=>a+p.beats,0) || 1, out = [];
+  for (let k=0;k<24;k++){
+    const set = diatonic(k), tonic = k, dom = id(rootOf(k)+7,0);
+    let fit=0, tw=0, cad=0;
+    prog.forEach((p,i)=>{ if (set.includes(p.c)) fit+=p.beats; if (p.c===tonic) tw+=p.beats; if (i && p.c===tonic && prog[i-1].c===dom) cad++; });
+    let score = fit/total + .35*tw/total + .05*Math.min(cad,2);
+    if (!tw) score -= .25; // a key whose home chord never appears is unlikely
+    if (prog[0].c===tonic) score += .12;
+    if (prog[prog.length-1].c===tonic) score += .15;
+    if (!isMin(k)) score += .005;
+    out.push({k, score, inKey: prog.filter(p=>set.includes(p.c)).length});
+  }
+  return out.sort((a,b)=>b.score-a.score);
+}
+const ROMAN = ['I','II','III','IV','V','VI','VII'];
+// interval (semitones above tonic) -> [scale degree index, accidental]
+const DEG_MAJ = [[0,''],[1,'♭'],[1,''],[2,'♭'],[2,''],[3,''],[4,'♭'],[4,''],[5,'♭'],[5,''],[6,'♭'],[6,'']];
+const DEG_MIN = [[0,''],[1,'♭'],[1,''],[2,''],[2,'♯'],[3,''],[4,'♭'],[4,''],[5,''],[5,'♯'],[6,''],[6,'♯']];
+function romanFor(c, k){
+  const iv = ((rootOf(c)-rootOf(k))%12+12)%12, [d,acc] = (isMin(k)?DEG_MIN:DEG_MAJ)[iv];
+  const r = ROMAN[d]; return acc + (isMin(c) ? r.toLowerCase() : r);
+}
+(() => { const sel = $('#keySel'); const o = (v,t) => { const e=document.createElement('option'); e.value=v; e.textContent=t; sel.appendChild(e); };
+  o('auto','Auto-detect'); for (let r=0;r<12;r++) o(String(id(r,0)), keyLabel(id(r,0))); for (let r=0;r<12;r++) o(String(id(r,1)), keyLabel(id(r,1))); })();
+let currentKey = null;
+function renderKey(){
+  const box = $('#keybox');
+  if (!S.prog.length){ box.hidden = true; currentKey = null; return null; }
+  box.hidden = false;
+  const ranked = rankKeys(S.prog), manual = S.key!=='auto' && S.key!==undefined;
+  const k = manual ? +S.key : ranked[0].k, set = diatonic(k);
+  const n = S.prog.length, inN = S.prog.filter(p=>set.includes(p.c)).length;
+  const out = [...new Set(S.prog.filter(p=>!set.includes(p.c)).map(p=>pretty(nameOf(p.c))))];
+  $('#keyName').textContent = keyLabel(k);
+  let fit = inN===n ? `All ${n} chord${n>1?'s':''} fit` : `<b>${inN} of ${n}</b> fit · ${out.slice(0,3).join(', ')}${out.length>3?'…':''} outside`;
+  if (!manual){
+    if (inN/n < .5) fit = `Chromatic, no clear key · ${fit}`;
+    const alt = ranked[1];
+    if (alt && ranked[0].score - alt.score < .06) fit += ` · or ${keyLabel(alt.k)}`;
+  } else fit += ' · set by you';
+  $('#keyFit').innerHTML = fit;
+  $('#keySel').value = manual ? String(k) : 'auto';
+  currentKey = k;
+  return {label:keyLabel(k), inKey:c=>set.includes(c), roman:c=>romanFor(c,k)};
+}
+$('#keySel').addEventListener('change', e => { S.key = e.target.value; renderProg(); save(); });
+
 function renderProg(){
   const strip = $('#strip'); strip.innerHTML = '';
   $('#exampleTag').hidden = !S.example;
@@ -554,6 +625,7 @@ function renderProg(){
   $('#progMeta').textContent = S.prog.length ? `${S.prog.length} chord${S.prog.length>1?'s':''} · ${Number.isInteger(bars)?bars:bars.toFixed(2)} bar${bars===1?'':'s'} of ${S.ts}` : '';
   $('#playBtn').disabled = !S.prog.length && !playing;
   $('#undoBtn').disabled = $('#clearBtn').disabled = $('#midiBtn').disabled = !S.prog.length;
+  const K = renderKey();
   if (!S.prog.length){
     const d = document.createElement('div'); d.className='empty';
     d.textContent = 'Double‑tap any chord in the tree to add it here.';
@@ -573,7 +645,7 @@ function renderProg(){
     ch.style.maxWidth = '100%';
     ch.draggable = true; ch.tabIndex = 0; ch.dataset.i = i;
     ch.setAttribute('aria-label', `${nameOf(p.c)}, ${fmtDur(p.beats)}`);
-    ch.innerHTML = `<div class="top"><span class="nm">${pretty(nameOf(p.c))}</span><span class="idx">${i+1}</span></div>
+    ch.innerHTML = `<div class="top"><span><span class="nm">${pretty(nameOf(p.c))}</span>${K?`<span class="rn${K.inKey(p.c)?'':' out'}" title="${K.inKey(p.c)?'In the key of '+K.label:'Outside '+K.label+' (borrowed or chromatic)'}">${K.roman(p.c)}</span>`:''}</span><span class="idx">${i+1}</span></div>
       <div class="ctl">
         <button data-a="minus" title="Shorter" aria-label="Shorter">−</button><span class="dur">${fmtDur(p.beats)}</span><button data-a="plus" title="Longer" aria-label="Longer">+</button>
         <button data-a="left" title="Move left" aria-label="Move left" ${i===0?'disabled':''}>‹</button><button data-a="right" title="Move right" aria-label="Move right" ${i===S.prog.length-1?'disabled':''}>›</button>
@@ -795,7 +867,8 @@ function track(evs){ // evs: [{tick, bytes, order}] -> MTrk chunk bytes
 }
 const txt = str => [...new TextEncoder().encode(str)];
 function meta(tick, type, data){ return {tick, order:0, bytes:[0xff,type,...vlq(data.length),...data]}; }
-function buildMidi(mode){
+function buildMidi(){
+  const mode = S.pat==='sustain' ? 'block' : 'played';
   const PPQ=480, [num,den]=tsParts(), bt = PPQ*4/den, bar = bt*num;
   const t0=[meta(0,0x03,txt('Chord Tree')),
     meta(0,0x51,(us=>[(us>>16)&255,(us>>8)&255,us&255])(Math.round(60e6/S.bpm))),
@@ -818,7 +891,7 @@ function buildMidi(mode){
           for (let s=0;s<sub;s++){ const k=b*sub+s, st=at+s*bt/sub; note(ch,0,seq[k%seq.length],st,Math.min(tick+len,st+bt/sub),s?vel-10:vel); } }
       }
     }
-    if (S.bass || mode==='block'){
+    if (S.bass){
       // root on the chord's first beat and on every barline inside it
       let at = tick;
       while (at < tick+len){ const nextBar = (Math.floor(at/bar)+1)*bar, end = Math.min(tick+len, nextBar); note(bs,1,bassNote(p.c),at,end,96); at = end; }
@@ -843,13 +916,15 @@ function zip(name, data){
 }
 function midiName(){
   const parts = S.prog.slice(0,6).map(p=>nameOf(p.c).replace('#','s'));
-  return `chord-tree-${parts.join('-')}${S.prog.length>6?'-etc':''}-${S.bpm}bpm`;
+  const rhythm = {beats:'strum', sustain:'hold', arp:'arpeggio'}[S.pat];
+  const key = currentKey===null ? '' : '-' + keyLabel(currentKey).replace('♭','b').replace('♯','s').replace(' ','-');
+  return `chord-tree-${parts.join('-')}${S.prog.length>6?'-etc':''}${key}-${rhythm}-${S.snd}${S.bass?'':'-nobass'}-${S.bpm}bpm-${S.ts.replace('/','-')}`;
 }
 let downloadsP = null;
 if (window.claude && typeof window.claude.use==='function') downloadsP = window.claude.use('downloads').catch(()=>null);
 $('#midiBtn').addEventListener('click', async () => {
   if (!S.prog.length){ toast('Add some chords first'); return; }
-  const mid = buildMidi($('#midiMode').value), base = midiName();
+  const mid = buildMidi(), base = midiName();
   const dl = downloadsP ? await downloadsP : null;
   if (dl){
     try { await dl.save({filename: base+'.zip', data: zip(base+'.mid', mid)}); toast('Saved: unzip it to get the .mid file'); }
@@ -860,7 +935,6 @@ $('#midiBtn').addEventListener('click', async () => {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   toast('MIDI file saved');
 });
-$('#midiMode').addEventListener('change', e => { S.midi = e.target.value; save(); });
 
 // ---------- random generation ----------
 function generate(){
@@ -1012,7 +1086,7 @@ document.addEventListener('keydown', e => {
 // ---------- boot ----------
 load();
 $('#stepSel').value = String(S.step); $('#depthSel').value = String(S.depth);
-$('#tsSel').value = S.ts; $('#midiMode').value = S.midi; $('#genLen').value = S.genLen; $('#genMoves').value = S.genMoves; $('#genHome').checked = S.genHome; $('#patSel').value = S.pat; $('#sndSel').value = S.snd; $('#vol').value = S.vol;
+$('#tsSel').value = S.ts; $('#genLen').value = S.genLen; $('#genMoves').value = S.genMoves; $('#genHome').checked = S.genHome; $('#patSel').value = S.pat; $('#sndSel').value = S.snd; $('#vol').value = S.vol;
 setBpm(S.bpm);
 ['bassBtn','clickBtn','loopBtn'].forEach(b => $('#'+b).setAttribute('aria-pressed', String(S[b.replace('Btn','')])));
 renderTree(false); renderSel(); renderProg();
